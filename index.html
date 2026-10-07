@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>kotoba</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app" id="app">
+    <main class="main">
+      <!-- 検索・置換バー（Ctrl+F / ⌘F で出る。普段は隠しておく） -->
+      <div id="findBar" class="findbar" role="search" hidden>
+        <div class="find-row">
+          <button class="find-btn find-expand" type="button" data-act="toggleReplace" title="置換を開く・閉じる" aria-expanded="false">▸</button>
+          <input id="findInput" class="find-input" type="text" placeholder="検索" autocomplete="off" spellcheck="false">
+          <span id="findCount" class="find-count" aria-live="polite"></span>
+          <button class="find-btn" type="button" data-act="prev" title="前へ（Shift+Enter）">↑</button>
+          <button class="find-btn" type="button" data-act="next" title="次へ（Enter）">↓</button>
+          <span class="find-sep"></span>
+          <button class="find-btn find-opt" type="button" data-opt="width" title="全角・半角、大文字・小文字を区別しない">Ａa</button>
+          <button class="find-btn find-opt" type="button" data-opt="kana" title="ひらがな・カタカナを区別しない">あア</button>
+          <button class="find-btn find-opt" type="button" data-opt="conj" title="動詞・形容詞の活用形も探す（佇む → 佇んで・佇まない…）。置換語も同じ形に活用させる">活用</button>
+          <button class="find-btn" type="button" data-act="close" title="閉じる（Esc）">×</button>
+        </div>
+        <div id="replaceRow" class="find-row" hidden>
+          <span class="find-indent"></span>
+          <input id="replaceInput" class="find-input" type="text" placeholder="置換" autocomplete="off" spellcheck="false">
+          <button class="find-btn find-text-btn" type="button" data-act="replace" title="置換して次へ（Enter）">置換</button>
+          <button class="find-btn find-text-btn" type="button" data-act="replaceAll" title="すべて置換（Ctrl/⌘+Enter）。Ctrl+Z 1回で全部戻る">すべて</button>
+        </div>
+        <p id="findNote" class="find-note" aria-live="polite"></p>
+      </div>
+
+      <div class="sheet">
+        <input
+          id="title"
+          class="title"
+          type="text"
+          placeholder="タイトル"
+          autocomplete="off"
+          spellcheck="false">
+        <textarea
+          id="editor"
+          class="editor"
+          spellcheck="false"
+          placeholder="文章を書く……"></textarea>
+      </div>
+
+      <footer class="status">
+        <span id="count" class="count"></span>
+        <button id="fontToggle" class="status-btn" type="button" title="クリックでフォント切替"></button>
+        <button id="dirToggle" class="status-btn" type="button" title="クリックで縦書き・横書き切替"></button>
+        <button id="twToggle" class="status-btn" type="button" title="クリックでタイプライタースクロール（書いている行を常に画面の中央に）の切替"></button>
+      </footer>
+    </main>
+
+    <aside class="panel" id="panel">
+      <!-- 上段：類語 -->
+      <section class="panel-top" aria-label="類語">
+        <input
+          id="search"
+          class="search"
+          type="search"
+          placeholder="言葉を調べる"
+          autocomplete="off">
+        <div id="results" class="results"></div>
+      </section>
+
+      <!-- 下段：メモ一覧（メイン＋ぶら下がる資料） -->
+      <section class="panel-memos" aria-label="メモ">
+        <header class="memos-head">
+          <span>メモ</span>
+          <button id="addMain" class="icon-btn" type="button" title="新しいメモ">+</button>
+        </header>
+        <div id="memoList" class="memo-list"></div>
+      </section>
+
+      <p class="hint">Ctrl+K 類語検索 / Ctrl+F 本文検索 / Esc 本文へ / Ctrl+\ パネル開閉</p>
+    </aside>
+  </div>
+
+  <!-- file:// で直接開けるよう、辞書は fetch ではなく script で読む（SPEC.md 参照） -->
+  <script src="dictionary.js"></script>
+  <script src="verb.js"></script>
+  <script src="caret.js"></script>
+  <script src="find.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
