@@ -518,7 +518,7 @@
     twToggle.textContent = typewriter ? 'タイプライター' : '通常スクロール';
     twToggle.setAttribute('aria-pressed', String(typewriter));
     // フォント・書字方向・余白が変わるとカーソルの位置の計算が全部変わるので、測り直す
-    caretEngine.layout();
+    // （setTypewriter の中で余白を入れ直してから layout する）
     caretEngine.setTypewriter(typewriter);
   }
 

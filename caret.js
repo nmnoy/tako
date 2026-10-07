@@ -57,7 +57,29 @@
     // ------------------------------------------------------------
     // ミラーの見た目を textarea に合わせる
     // ------------------------------------------------------------
+    // タイプライター用の余白。1行目も最終行も画面の中央まで来られるよう、
+    // 入力欄の実際の高さ（縦書きは幅）から計算して入れる。
+    // CSS だと padding の % は「幅」基準で、高さに対しては書けない。vh で書くと、
+    // 検索バーやタイトルのぶん合計が入力欄より大きくなって、textarea がはみ出す
+    function applyTypewriterPadding() {
+      const st = editor.style;
+      st.paddingTop = st.paddingBottom = st.paddingLeft = st.paddingRight = '';
+      if (!typewriter) return;
+      const cs = getComputedStyle(editor);
+      const line = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.9;
+      const box = editor.getBoundingClientRect(); // 余白を変えても箱の大きさは flex で決まっているので変わらない
+      if (cs.writingMode.startsWith('vertical')) {
+        const half = Math.max(0, box.width / 2 - line / 2);
+        st.paddingRight = half + 'px';
+        st.paddingLeft = half + 'px';
+      } else {
+        st.paddingTop = Math.max(0, box.height * 0.45 - line / 2) + 'px';
+        st.paddingBottom = Math.max(0, box.height * 0.55 - line / 2) + 'px';
+      }
+    }
+
     function layout() {
+      applyTypewriterPadding();
       const cs = getComputedStyle(editor);
       for (const p of COPY_STYLES) mirror.style[p] = cs[p];
       // textarea の折り返しは pre-wrap + break-word。div のデフォルトとは違うので明示する
@@ -72,7 +94,8 @@
       mirror.style.top = editor.offsetTop + editor.clientTop + 'px';
 
       caret.classList.toggle('vertical', cs.writingMode.startsWith('vertical'));
-      schedule({ text: true });
+      // 大きさが変わると中央の位置も変わるので、タイプライター中なら寄せ直す（検索バーの開け閉めなど）
+      schedule({ text: true, center: true });
     }
 
     // ------------------------------------------------------------
@@ -322,7 +345,8 @@
     editor.addEventListener('scroll', () => schedule(), { passive: true });
 
     // ウィンドウの大きさが変わると折り返し位置が変わる
-    new ResizeObserver(() => layout()).observe(editor);
+    // 余白を変えても反応しないよう、枠の外側（border-box）の大きさだけを見る
+    new ResizeObserver(() => layout()).observe(editor, { box: 'border-box' });
     // Web フォントの読み込みが終わると文字幅が変わる
     if (document.fonts) document.fonts.ready.then(layout);
 
@@ -338,6 +362,7 @@
       onFlush: (fn) => flushListeners.push(fn),
       setTypewriter(on) {
         typewriter = on;
+        layout();
         schedule({ center: true });
       },
       get composing() { return composing; },

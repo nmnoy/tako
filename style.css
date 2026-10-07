@@ -7,6 +7,11 @@
   --accent: #6b6458;
   --find: rgba(255, 190, 0, 0.28);
   --find-current: rgba(255, 140, 0, 0.55);
+  --scroll: rgba(0, 0, 0, 0.18);       /* スクロールバーのつまみ */
+  --scroll-hover: rgba(0, 0, 0, 0.32);
+  /* 本文の1行の幅（全角でだいたい36〜38字 = 本文の文字サイズ 17px × 38）。
+     em で書くと、文字の大きいタイトルでは 1.4倍で計算されて左端がずれるので px で固定する */
+  --column: 646px;
   --panel-width: 260px;
 
   --font-sans: "Hiragino Sans", "Noto Sans JP", "Noto Sans CJK JP", "Yu Gothic UI", "Yu Gothic", sans-serif;
@@ -24,6 +29,8 @@
     --accent: #b5ad9f;
     --find: rgba(255, 200, 60, 0.20);
     --find-current: rgba(255, 150, 40, 0.45);
+    --scroll: rgba(255, 255, 255, 0.16);
+    --scroll-hover: rgba(255, 255, 255, 0.30);
   }
 }
 
@@ -62,23 +69,38 @@ body {
 
 .main {
   display: grid;
-  grid-template-rows: auto 1fr auto; /* 検索バー / 紙 / ステータス（検索バーは隠れていると高さ0） */
+  grid-template-rows: auto 1fr auto; /* 検索バー / 紙 / ステータス */
   min-width: 0;
   min-height: 0;
 }
 
 /* ---------- 紙（タイトル＋本文） ---------- */
 
+/* grid は hidden の要素を1マスとして数えない。段を明示しないと、検索バーが隠れているとき
+   紙が1段目（auto）に、ステータスが2段目（1fr）に詰められて、ステータスが宙に浮く */
+.findbar { grid-row: 1; }
+.sheet   { grid-row: 2; }
+.status  { grid-row: 3; }
+
 .sheet {
   position: relative; /* 自前のカーソルとミラーをこの中に重ねる */
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 38em; /* 全角でだいたい36〜38字 */
   min-height: 0;
-  margin: 0 auto;
-  padding: 8vh 2em 0;
+  overflow: hidden;            /* 何があっても下のステータス欄に覆いかぶさらない */
+  container-type: size;        /* 中の要素が cqh（この紙の高さに対する%）を使えるようにする */
+  padding-top: 8vh;
   font-size: 17px;
+}
+
+/* 本文とタイトルは「左右いっぱいの箱」にして、文字の列だけを余白で中央に寄せる。
+   こうするとスクロールバーが本文の真横ではなく、VS Code のように領域の右端に出る。
+   % の余白は親（.sheet）の幅が基準。狭い画面でも最低 2em は空ける */
+.title,
+.editor {
+  padding-left: max(34px, calc((100% - var(--column)) / 2));
+  padding-right: max(34px, calc((100% - var(--column)) / 2));
 }
 
 .title,
@@ -93,7 +115,8 @@ body {
 .title {
   width: 100%;
   margin-bottom: 1.2em;
-  padding: 0;
+  padding-top: 0;
+  padding-bottom: 0;
   font-size: 1.4em;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -103,7 +126,8 @@ body {
   flex: 1;
   width: 100%;
   min-height: 0;
-  padding: 0 0 40vh; /* 下を広く空けて、最終行も画面中央付近で書ける */
+  padding-top: 0;
+  padding-bottom: 40vh; /* 下を広く空けて、最終行も画面中央付近で書ける */
   resize: none;
   font-size: 1em;
   line-height: 1.9;
@@ -122,6 +146,44 @@ body {
 .title::placeholder,
 .editor::placeholder {
   color: var(--muted);
+}
+
+/* ---------- スクロールバー ---------- */
+/* 細く、背景になじむ色に。本文はふだん隠しておき、ホバーしたときだけ出す（VS Code と同じ） */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll) transparent;
+}
+.editor {
+  scrollbar-color: transparent transparent;
+}
+.editor:hover,
+.editor:focus-within:hover {
+  scrollbar-color: var(--scroll) transparent;
+}
+
+/* Safari など、scrollbar-color に未対応のブラウザ用（対応しているブラウザではこちらは無視される） */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;  /* つまみを細く見せつつ、つかめる幅は10pxのまま */
+  border-radius: 10px;
+  background: var(--scroll) padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scroll-hover) padding-box;
+}
+.editor::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+.editor:hover::-webkit-scrollbar-thumb {
+  background: var(--scroll) padding-box;
 }
 
 /* ---------- 自前のカーソル（caret.js） ---------- */
@@ -284,27 +346,19 @@ body {
 }
 
 /* ---------- タイプライタースクロール ---------- */
-/* 1行目や最終行でも画面の中央まで来られるよう、上下（縦書きは左右）に大きく余白をとる */
-
-.app.typewriter .editor {
-  padding-top: 40vh;
-  padding-bottom: 50vh;
-}
-.app.typewriter.vertical .editor {
-  /* vw で取るとエディタの幅を超えて、flex の子が親からはみ出す。親（.sheet）の幅に対する % で取る */
-  padding: 0 40% 0 45%;
-}
+/* 1行目や最終行でも中央に来られるよう上下（縦書きは左右）に大きな余白をとるが、
+   その大きさは入力欄の実際の高さから caret.js が計算して入れる（applyTypewriterPadding） */
 
 /* ---------- 縦書き ---------- */
 /* 右上から書き始めて左へ進む。タイトルは一番右の列に立てる */
 
 .app.vertical .sheet {
   flex-direction: row-reverse;
-  max-width: none;
   padding: 6vh 4vw 2vh;
 }
 
 .app.vertical .title {
+  padding: 0;
   writing-mode: vertical-rl;
   width: 2em;
   height: 100%;
