@@ -58,9 +58,7 @@
   const titleInput = document.getElementById('title');
   const editor = document.getElementById('editor');
   const count = document.getElementById('count');
-  const fontToggle = document.getElementById('fontToggle');
-  const dirToggle = document.getElementById('dirToggle');
-  const twToggle = document.getElementById('twToggle');
+  const settingButtons = document.querySelectorAll('.seg-btn[data-setting]');
   const search = document.getElementById('search');
   const results = document.getElementById('results');
 
@@ -512,30 +510,22 @@
     app.classList.toggle('font-serif', font === 'serif');
     app.classList.toggle('vertical', vertical);
     app.classList.toggle('typewriter', typewriter);
-    // ボタンには「今の状態」を出す。押すと反対に切り替わる
-    fontToggle.textContent = font === 'serif' ? '明朝' : 'ゴシック';
-    dirToggle.textContent = vertical ? '縦書き' : '横書き';
-    twToggle.textContent = typewriter ? 'タイプライター' : '通常スクロール';
-    twToggle.setAttribute('aria-pressed', String(typewriter));
+    // 2択を両方並べて、今選ばれている方に印を付ける（aria-checked が CSS の見た目も兼ねる）
+    for (const btn of settingButtons) {
+      const on = String(store.settings[btn.dataset.setting]) === btn.dataset.value;
+      btn.setAttribute('aria-checked', String(on));
+      btn.tabIndex = on ? 0 : -1; // Tab で来たときは選ばれている方にフォーカス（ラジオボタンの作法）
+    }
     // フォント・書字方向・余白が変わるとカーソルの位置の計算が全部変わるので、測り直す
     // （setTypewriter の中で余白を入れ直してから layout する）
     caretEngine.setTypewriter(typewriter);
   }
 
-  function toggleTypewriter() {
-    store.settings.typewriter = !store.settings.typewriter;
-    applySettings();
-    scheduleSave();
-  }
-
-  function toggleFont() {
-    store.settings.font = store.settings.font === 'serif' ? 'sans' : 'serif';
-    applySettings();
-    scheduleSave();
-  }
-
-  function toggleDirection() {
-    store.settings.vertical = !store.settings.vertical;
+  // data-value は文字列なので、真偽値の設定は 'true' / 'false' を戻してから入れる
+  function setSetting(key, raw) {
+    const value = raw === 'true' ? true : raw === 'false' ? false : raw;
+    if (store.settings[key] === value) return; // 選ばれている方を押しても何もしない
+    store.settings[key] = value;
     applySettings();
     scheduleSave();
   }
@@ -976,12 +966,10 @@
 
   // 候補ボタンと同じ理由で、押した瞬間に本文のフォーカスと選択を奪わないようにする。
   // pointerdown で preventDefault してもその後の click は発火するので、処理は click に書ける。
-  for (const btn of [fontToggle, dirToggle, twToggle]) {
+  for (const btn of settingButtons) {
     btn.addEventListener('pointerdown', (ev) => ev.preventDefault());
+    btn.addEventListener('click', () => setSetting(btn.dataset.setting, btn.dataset.value));
   }
-  fontToggle.addEventListener('click', toggleFont);
-  dirToggle.addEventListener('click', toggleDirection);
-  twToggle.addEventListener('click', toggleTypewriter);
 
   // --- 検索 ---
 

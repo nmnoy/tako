@@ -78,8 +78,18 @@
       }
     }
 
+    // ミラーを合わせたときの textarea の中身の幅・高さ。これが変わったら合わせ直す
+    let syncedW = -1;
+    let syncedH = -1;
+
     function layout() {
       applyTypewriterPadding();
+      copyStyles();
+      // 大きさが変わると中央の位置も変わるので、タイプライター中なら寄せ直す（検索バーの開け閉めなど）
+      schedule({ text: true, center: true });
+    }
+
+    function copyStyles() {
       const cs = getComputedStyle(editor);
       for (const p of COPY_STYLES) mirror.style[p] = cs[p];
       // textarea の折り返しは pre-wrap + break-word。div のデフォルトとは違うので明示する
@@ -94,8 +104,8 @@
       mirror.style.top = editor.offsetTop + editor.clientTop + 'px';
 
       caret.classList.toggle('vertical', cs.writingMode.startsWith('vertical'));
-      // 大きさが変わると中央の位置も変わるので、タイプライター中なら寄せ直す（検索バーの開け閉めなど）
-      schedule({ text: true, center: true });
+      syncedW = editor.clientWidth;
+      syncedH = editor.clientHeight;
     }
 
     // ------------------------------------------------------------
@@ -204,6 +214,7 @@
 
     // ミラーを今の textarea の状態に合わせる（フレームを待たずに測りたいとき用）
     function syncNow() {
+      if (editor.clientWidth !== syncedW || editor.clientHeight !== syncedH) copyStyles();
       if (textDirty) syncText();
       mirror.scrollTop = editor.scrollTop;
       mirror.scrollLeft = editor.scrollLeft;
@@ -251,6 +262,10 @@
 
     function flush() {
       frame = 0;
+      // 文章がはみ出してスクロールバーが出る（消える）と、textarea の外枠はそのままで中身の幅だけが変わる。
+      // ResizeObserver は外枠しか見ていないので気づけず、ミラーの折り返し位置がずれてカーソルがずれる。
+      // 毎フレーム中身の幅を確かめて、変わっていたら合わせ直す（数値の比較だけなので軽い）
+      if (editor.clientWidth !== syncedW || editor.clientHeight !== syncedH) copyStyles();
       if (textDirty) syncText();
 
       const focused = document.activeElement === editor;

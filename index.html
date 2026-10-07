@@ -49,9 +49,19 @@
 
       <footer class="status">
         <span id="count" class="count"></span>
-        <button id="fontToggle" class="status-btn" type="button" title="クリックでフォント切替"></button>
-        <button id="dirToggle" class="status-btn" type="button" title="クリックで縦書き・横書き切替"></button>
-        <button id="twToggle" class="status-btn" type="button" title="クリックでタイプライタースクロール（書いている行を常に画面の中央に）の切替"></button>
+        <!-- 2択の設定は「両方並べて、今の方を濃く」。押したら何が起きるかで迷わない -->
+        <div class="seg" role="radiogroup" aria-label="書体">
+          <button class="seg-btn" type="button" role="radio" data-setting="font" data-value="sans">ゴシック</button>
+          <button class="seg-btn" type="button" role="radio" data-setting="font" data-value="serif">明朝</button>
+        </div>
+        <div class="seg" role="radiogroup" aria-label="書字方向">
+          <button class="seg-btn" type="button" role="radio" data-setting="vertical" data-value="false">横書き</button>
+          <button class="seg-btn" type="button" role="radio" data-setting="vertical" data-value="true">縦書き</button>
+        </div>
+        <div class="seg" role="radiogroup" aria-label="スクロール">
+          <button class="seg-btn" type="button" role="radio" data-setting="typewriter" data-value="false" title="ふつうのスクロール">通常</button>
+          <button class="seg-btn" type="button" role="radio" data-setting="typewriter" data-value="true" title="書いている行を常に画面の中央に保つ">タイプライター</button>
+        </div>
       </footer>
     </main>
 

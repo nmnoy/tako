@@ -141,6 +141,9 @@ body {
   caret-color: transparent;
   position: relative;
   z-index: 1;
+  /* スクロールバーの幅を最初から確保しておく。これがないと、文章がはみ出してスクロールバーが出た瞬間に
+     中身の幅が狭くなって全行の折り返しが変わり、カーソル計算用のミラーともずれる */
+  scrollbar-gutter: stable;
 }
 
 .title::placeholder,
@@ -390,20 +393,36 @@ body {
   font-variant-numeric: tabular-nums; /* 数字の幅を揃えて、打つたびにガタつかないように */
 }
 
-.status-btn {
-  padding: 2px 6px;
+/* 2択の設定。両方並べて、今選ばれている方だけ濃く・背景つきにする。
+   選ばれていない方は薄くして、右下が賑やかにならないようにする */
+.seg {
+  display: inline-flex;
+  margin-left: 10px;
+  padding: 2px;
+  border-radius: 5px;
+  background: var(--hover);
+}
+.seg-btn {
+  padding: 2px 8px;
   border: none;
   border-radius: 3px;
   background: none;
-  color: inherit;
+  color: var(--muted);
   font: inherit;
+  opacity: 0.7;
   cursor: pointer;
 }
-.status-btn:hover,
-.status-btn:focus-visible {
+.seg-btn:hover {
+  opacity: 1;
+}
+.seg-btn[aria-checked="true"] {
   color: var(--text);
-  background: var(--hover);
-  outline: none;
+  background: var(--bg);
+  opacity: 1;
+  cursor: default;
+}
+.seg-btn:focus-visible {
+  outline: 1px solid var(--accent);
 }
 
 
