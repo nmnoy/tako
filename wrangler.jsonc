@@ -1,0 +1,11 @@
+// Cloudflare Workers で公開するための設定（静的ファイルだけを配信する。サーバーの処理はない）
+// Cloudflare 側の設定:
+//   ビルドコマンド:  python3 tools/build_site.py   … 公開するファイルだけを dist/ に集める
+//   デプロイコマンド: npx wrangler deploy          … この設定を読んで dist/ を公開する
+{
+  "name": "tako",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist"
+  }
+}

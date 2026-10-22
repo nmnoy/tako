@@ -21,8 +21,8 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 SW = ROOT / 'sw.js'
 
 # 配信するけれどキャッシュに入れなくていいもの・配信しないもの
-IGNORE_DIRS = {'tools', '.git', 'node_modules'}
-IGNORE_FILES = {'sw.js', 'SPEC.md', '.gitignore', '.DS_Store'}
+IGNORE_DIRS = {'tools', '.git', 'node_modules', 'dist', '.wrangler'}
+IGNORE_FILES = {'sw.js', 'SPEC.md', '.gitignore', '.DS_Store', 'wrangler.jsonc'}
 
 
 def main() -> int:
