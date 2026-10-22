@@ -1,3 +1,4 @@
 tools/sources/
 __pycache__/
 .DS_Store
+dist/
