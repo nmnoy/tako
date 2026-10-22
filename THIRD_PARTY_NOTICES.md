@@ -1,6 +1,6 @@
 # サードパーティのライセンス表記
 
-kotoba の類語辞書（`dictionary.js`）は、以下のデータから `tools/build_dictionary.py` で生成している。
+タコエディタ（開発中の名前は kotoba）の類語辞書（`dictionary.js`）は、以下のデータから `tools/build_dictionary.py` で生成している。
 アプリを配布するときは、このファイルと `licenses/` フォルダを一緒に同梱し、アプリ内の「このアプリについて」等からも参照できるようにすること。
 
 ---

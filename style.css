@@ -9,12 +9,22 @@
   --find-current: rgba(255, 140, 0, 0.55);
   --scroll: rgba(0, 0, 0, 0.18);       /* スクロールバーのつまみ */
   --scroll-hover: rgba(0, 0, 0, 0.32);
-  /* 本文の1行の幅（全角でだいたい36〜38字 = 本文の文字サイズ 17px × 38）。
-     em で書くと、文字の大きいタイトルでは 1.4倍で計算されて左端がずれるので px で固定する */
+  --desk: #f1efea;                       /* 紙の外（机） */
+  --paper: #fdfcfa;                      /* 紙 */
+  --paper-edge: #e3e0d8;                 /* 紙のふち */
+  --paper-sub: #fbf5e4;                  /* 資料用の紙（少し黄みがかった、カードや付箋の色） */
+  --paper-sub-edge: #e5d9b8;
+  --link: #3f78b5;                       /* 資料の中の URL の下線 */
+  --text-size: 17px;                     /* 本文の文字サイズ。JS が .app に設定で上書きする */
+  /* 紙の幅と1行の幅。文字サイズを変えても紙は動かず、1行の字数が変わるだけにする
+     （17px で全角38字。em で書くとタイトルでは1.4倍で計算されてずれるので px で固定） */
   --column: 646px;
+  --page: calc(var(--column) + 96px);    /* 左右に 48px ずつ余白 */
   --panel-width: 260px;
 
-  --font-sans: "Hiragino Sans", "Noto Sans JP", "Noto Sans CJK JP", "Yu Gothic UI", "Yu Gothic", sans-serif;
+  /* Windows の「Yu Gothic」は標準の太さだと細くかすれて見えるので、Medium を先に指定する（Mac には無いので無視される）。
+     Mac はヒラギノ、Windows は游ゴシック Medium → メイリオ の順に使われる */
+  --font-sans: "Hiragino Sans", "Noto Sans JP", "Yu Gothic Medium", "Yu Gothic UI", "Yu Gothic", "Meiryo", "Noto Sans CJK JP", sans-serif;
   --font-serif: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Noto Serif JP", "Noto Serif CJK JP", serif;
   --font-text: var(--font-sans); /* 本文とタイトルのフォント。切替でここだけ差し替える */
 }
@@ -31,6 +41,12 @@
     --find-current: rgba(255, 150, 40, 0.45);
     --scroll: rgba(255, 255, 255, 0.16);
     --scroll-hover: rgba(255, 255, 255, 0.30);
+    --desk: #161614;
+    --paper: #20201e;
+    --paper-edge: #2d2c29;
+    --paper-sub: #25231c;
+    --paper-sub-edge: #3a362a;
+    --link: #7eaee0;
   }
 }
 
@@ -53,6 +69,12 @@ body {
   height: 100%;
 }
 
+/* 資料を開いているときは紙を資料用の色にする（紙の背景は --paper を参照しているので、差し替えるだけでいい） */
+.app.is-sub {
+  --paper: var(--paper-sub);
+  --paper-edge: var(--paper-sub-edge);
+}
+
 .app.font-serif {
   --font-text: var(--font-serif);
 }
@@ -68,8 +90,9 @@ body {
 /* ---------- メイン（紙 / ステータス） ---------- */
 
 .main {
+  background: var(--desk);
   display: grid;
-  grid-template-rows: auto 1fr auto; /* 検索バー / 紙 / ステータス */
+  grid-template-rows: auto 1fr auto auto; /* 検索バー / 紙 / 画像の帯（資料のときだけ） / ステータス */
   min-width: 0;
   min-height: 0;
 }
@@ -80,7 +103,8 @@ body {
    紙が1段目（auto）に、ステータスが2段目（1fr）に詰められて、ステータスが宙に浮く */
 .findbar { grid-row: 1; }
 .sheet   { grid-row: 2; }
-.status  { grid-row: 3; }
+.attach  { grid-row: 3; }
+.status  { grid-row: 4; }
 
 .sheet {
   position: relative; /* 自前のカーソルとミラーをこの中に重ねる */
@@ -91,7 +115,21 @@ body {
   overflow: hidden;            /* 何があっても下のステータス欄に覆いかぶさらない */
   container-type: size;        /* 中の要素が cqh（この紙の高さに対する%）を使えるようにする */
   padding-top: 8vh;
-  font-size: 17px;
+  font-size: var(--text-size);
+
+  /* 紙：文字の列の範囲に、地より明るい帯と両端の細い線を描く。
+     textarea は左右いっぱいの透明な箱なので、その後ろの .sheet の背景に描く。
+     背景はスクロールしても動かないので、紙の上を文字が流れていく見た目になる。
+     狭い画面では左右 16px を残して紙を縮める */
+  --page-w: min(100% - 32px, var(--page));
+  --page-l: calc(50% - var(--page-w) / 2);
+  --page-r: calc(50% + var(--page-w) / 2);
+  background: linear-gradient(to right,
+    transparent var(--page-l),
+    var(--paper-edge) var(--page-l), var(--paper-edge) calc(var(--page-l) + 1px),
+    var(--paper) calc(var(--page-l) + 1px), var(--paper) calc(var(--page-r) - 1px),
+    var(--paper-edge) calc(var(--page-r) - 1px), var(--paper-edge) var(--page-r),
+    transparent var(--page-r));
 }
 
 /* 本文とタイトルは「左右いっぱいの箱」にして、文字の列だけを余白で中央に寄せる。
@@ -187,6 +225,120 @@ body {
 }
 .editor:hover::-webkit-scrollbar-thumb {
   background: var(--scroll) padding-box;
+}
+
+/* ---------- 資料の中の URL（links.js） ---------- */
+
+/* 検索のハイライトと同じく、透明な textarea の裏に下線を敷く */
+.link-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.link-mark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: var(--link);
+}
+/* カーソルが URL の中にあるときの「↗ 開く」の吹き出し（links.js） */
+.link-tip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 360px;
+  padding: 3px 4px 3px 3px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.4;
+  writing-mode: horizontal-tb; /* 縦書きのときも吹き出しの中は横書き */
+}
+.link-tip[hidden] {
+  display: none;
+}
+.link-tip-open {
+  flex: none;
+  padding: 2px 8px;
+  border: none;
+  border-radius: 4px;
+  background: var(--hover);
+  color: var(--link);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.link-tip-open:hover {
+  background: var(--line);
+}
+.link-tip-url {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+/* ⌘/Ctrl を押しながら URL の上にいるときだけ、指のカーソル */
+.editor.over-link {
+  cursor: pointer;
+}
+
+/* ---------- 資料の目印 ---------- */
+
+/* どの作品の資料か（タイトルの上）。紙の上の文字の列と左端をそろえる */
+.crumb {
+  position: absolute;
+  z-index: 2;
+  top: max(10px, calc(8vh - 30px));
+  left: max(34px, calc((100% - var(--column)) / 2));
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.crumb[hidden] {
+  display: none;
+}
+.crumb-parent {
+  padding: 1px 4px;
+  margin-left: -4px;
+  border: none;
+  border-radius: 3px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.crumb-parent:hover,
+.crumb-parent:focus-visible {
+  background: var(--hover);
+  outline: none;
+}
+.app.vertical .crumb {
+  top: 24px;
+  left: 28px;
+}
+
+/* 一覧の資料の行の頭に付ける「カード」のアイコン。色は文字色に合わせる（mask で形だけ借りる） */
+.memo-icon {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  margin-right: 5px;
+  background: currentColor;
+  opacity: 0.7;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='2.5' y='2.5' width='11' height='11' rx='1.5' fill='none' stroke='black' stroke-width='1.3'/%3E%3Cpath d='M5 6h6M5 8.5h6M5 11h3.5' stroke='black' stroke-width='1.3' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='2.5' y='2.5' width='11' height='11' rx='1.5' fill='none' stroke='black' stroke-width='1.3'/%3E%3Cpath d='M5 6h6M5 8.5h6M5 11h3.5' stroke='black' stroke-width='1.3' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
 /* ---------- 自前のカーソル（caret.js） ---------- */
@@ -356,6 +508,12 @@ body {
 /* 右上から書き始めて左へ進む。タイトルは一番右の列に立てる */
 
 .app.vertical .sheet {
+  /* 縦書きは文字の列が横に流れていくので、帯ではなく領域全体を1枚の紙にする */
+  width: auto;
+  margin: 16px 16px 0;
+  border: 1px solid var(--paper-edge);
+  border-radius: 4px;
+  background: var(--paper);
   flex-direction: row-reverse;
   padding: 6vh 4vw 2vh;
 }
@@ -376,6 +534,145 @@ body {
   padding: 0 0 0 30vw; /* 縦書きでは「最終行の先」は左側 */
 }
 
+/* ---------- 資料の画像の帯（images.js） ---------- */
+
+.attach[hidden] {
+  display: none;
+}
+.attach {
+  min-width: 0;
+  padding: 8px 16px 0;
+}
+/* 紙と同じ幅にそろえる */
+.attach-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(100%, var(--page));
+  margin: 0 auto;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.attach-list {
+  display: flex;
+  gap: 6px;
+}
+.attach-thumb {
+  flex: none;
+  width: 72px;
+  height: 54px;
+  padding: 0;
+  border: 1px solid var(--paper-edge);
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--paper);
+  cursor: zoom-in;
+}
+.attach-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* 縦長・横長の画像も枠いっぱいに（はみ出しは切る）。全体は拡大表示で見る */
+  display: block;
+}
+.attach-thumb:hover,
+.attach-thumb:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+.attach-add {
+  flex: none;
+  padding: 4px 10px;
+  border: 1px dashed var(--paper-sub-edge);
+  border-radius: 4px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.attach:not(.empty) .attach-add {
+  height: 54px; /* サムネイルと同じ高さの「＋」の枠にする */
+}
+.attach-add:hover,
+.attach-add:focus-visible {
+  color: var(--text);
+  border-color: var(--accent);
+  outline: none;
+}
+/* 縦書きは紙が左右いっぱいに広がるので、帯も紙の左端にそろえる */
+.app.vertical .attach-inner {
+  width: 100%;
+}
+/* 説明は画像が0枚のときだけ。貼り方が分かったあとは邪魔なので消す */
+.attach-hint {
+  flex: none;
+  font-size: 11px;
+  color: var(--muted);
+}
+.attach:not(.empty) .attach-hint {
+  display: none;
+}
+
+/* 拡大表示 */
+.image-viewer {
+  max-width: calc(100vw - 48px);
+  max-height: calc(100vh - 48px);
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+.image-viewer::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+.viewer-img {
+  display: block;
+  max-width: calc(100vw - 48px);
+  max-height: calc(100vh - 48px - 44px);
+  margin: 0 auto;
+  object-fit: contain;
+}
+.viewer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 44px;
+  padding: 0 10px 0 14px;
+  font-size: 12px;
+}
+.viewer-info {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+.viewer-actions {
+  display: flex;
+  flex: none;
+  gap: 4px;
+}
+.viewer-actions button {
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.viewer-actions button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.viewer-actions button:not(:disabled):hover {
+  background: var(--hover);
+}
+
 /* ---------- ステータス ---------- */
 
 .status {
@@ -391,6 +688,24 @@ body {
 .count {
   margin-right: 8px;
   font-variant-numeric: tabular-nums; /* 数字の幅を揃えて、打つたびにガタつかないように */
+}
+
+/* 書き出しボタン（右下の文字だけのボタン） */
+.status-text-btn {
+  margin-left: 6px;
+  padding: 3px 8px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+.status-text-btn:hover,
+.status-text-btn:focus-visible {
+  color: var(--text);
+  background: var(--hover);
+  outline: none;
 }
 
 /* 2択の設定。両方並べて、今選ばれている方だけ濃く・背景つきにする。
@@ -423,6 +738,25 @@ body {
 }
 .seg-btn:focus-visible {
   outline: 1px solid var(--accent);
+}
+
+/* 文字サイズ： A−  17  A＋ */
+.size .seg-btn {
+  opacity: 1;
+}
+.size-sign {
+  font-size: 0.85em;
+  margin-left: 1px;
+}
+.size-value {
+  min-width: 2.6em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.size-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
 }
 
 
@@ -645,6 +979,17 @@ body {
   white-space: nowrap;
 }
 
+/* 文字数。ラベルより目立たせない。桁がそろうように等幅数字 */
+.memo-count {
+  flex: none;
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: normal;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  opacity: 0.8;
+}
+
 /* 行の右端の小さいボタン（開いて見る・削除）。普段は消しておき、ホバーで出す */
 .memo-act {
   padding: 1px 5px;
@@ -694,6 +1039,7 @@ body {
 
 /* その場で開いた資料の本文 */
 .ref-body {
+  background: var(--paper-sub) !important; /* 一覧の中で開いた資料も、資料用の紙の色 */
   display: block;
   width: calc(100% - 28px);
   height: 30vh;
@@ -719,4 +1065,438 @@ body {
   color: var(--muted);
   font-size: 11px;
   opacity: 0.7;
+}
+
+/* パネルの一番下：ヒントと「タコエディタについて」 */
+.panel-foot {
+  padding: 0 20px 12px;
+}
+.panel-foot .hint {
+  padding: 8px 0 4px;
+}
+.about-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  opacity: 0.7;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.about-link:hover,
+.about-link:focus-visible {
+  opacity: 1;
+  color: var(--text);
+  outline: none;
+}
+
+/* ---------- このアプリについて（about.js） ---------- */
+.about-dialog {
+  width: min(520px, calc(100vw - 32px));
+}
+.about-body {
+  max-height: min(70vh, 640px);
+  overflow-y: auto;
+  margin: 0 -22px 14px;
+  padding: 0 22px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.about-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.about-icon {
+  flex: none;
+  border-radius: 11px;
+}
+.about-name {
+  font-size: 18px;
+  font-weight: 600;
+}
+.about-version {
+  font-size: 12px;
+  color: var(--muted);
+}
+.about-lead {
+  margin: 12px 0 0;
+}
+.about-section {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.about-h {
+  margin: 0 0 4px;
+  font-size: 13px;
+}
+.about-section p {
+  margin: 4px 0;
+}
+.about-muted {
+  color: var(--muted);
+}
+.about-section a {
+  color: var(--link);
+}
+.about-keys {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.about-keys th,
+.about-keys td {
+  padding: 3px 0;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+}
+.about-keys th {
+  width: 45%;
+  padding-right: 12px;
+  font-weight: normal;
+  color: var(--muted);
+}
+.about-license {
+  margin: 6px 0;
+}
+.about-license summary,
+.about-full summary {
+  cursor: pointer;
+}
+.about-license > *:not(summary) {
+  margin-left: 1em;
+}
+.about-pre {
+  max-height: 240px;
+  overflow: auto;
+  margin: 6px 0;
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: var(--hover);
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- 書き出し（export.js） ---------- */
+
+.export-dialog {
+  width: min(420px, calc(100vw - 32px));
+  padding: 20px 22px 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+.export-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.35);
+}
+.export-heading {
+  margin: 0 0 14px;
+  font-size: 15px;
+}
+.export-field {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0 0 14px;
+  padding: 0;
+  border: none;
+}
+.export-field legend {
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.export-field label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+.export-field input {
+  accent-color: var(--accent);
+  margin: 0;
+}
+.export-note {
+  min-height: 2.6em;
+  margin: 0 0 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.export-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.export-actions button {
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.export-actions .export-ok {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--bg);
+}
+.export-actions button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* バックアップ欄（書き出しダイアログの下） */
+.backup-box {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.backup-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.backup-heading {
+  margin: 0;
+  font-size: 13px;
+}
+.backup-last {
+  font-size: 12px;
+  color: var(--muted);
+}
+/* しばらくバックアップしていないときだけ、少し目立たせる（赤にはしない。急かしすぎない） */
+.backup-last.stale {
+  color: var(--accent);
+  font-weight: 600;
+}
+.backup-desc {
+  margin: 6px 0 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.backup-actions button {
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.backup-actions button:hover {
+  background: var(--hover);
+}
+.backup-actions button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* 自動バックアップ（書き出しダイアログの中） */
+.auto-box {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+.auto-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.auto-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+.auto-status {
+  font-size: 12px;
+  color: var(--muted);
+}
+.auto-status.on {
+  color: var(--accent);
+  font-weight: 600;
+}
+.auto-status.warn {
+  color: #b5562b;
+  font-weight: 600;
+}
+/* 右下の「自動バックアップ停止中」。目に入るが、赤で騒ぎすぎない */
+.status-warn {
+  color: #b5562b;
+}
+/* 原稿が空っぽのときの「戻し方」の案内（紙の下の方に薄く） */
+.restore-hint[hidden] {
+  display: none;
+}
+.restore-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 28px;
+  z-index: 2;
+  width: min(100% - 64px, var(--column));
+  transform: translateX(-50%);
+  padding: 12px 14px;
+  border: 1px dashed var(--paper-edge);
+  border-radius: 6px;
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.7;
+  pointer-events: none; /* 案内の上でも、下の紙をクリックして書き始められるように。ボタンだけ押せる */
+  writing-mode: horizontal-tb;
+}
+.restore-hint p {
+  margin: 0 0 6px;
+}
+.restore-hint-btn {
+  pointer-events: auto;
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.restore-hint-btn:hover {
+  background: var(--hover);
+}
+.restore-summary {
+  margin: 0 0 14px;
+  font-size: 14px;
+}
+
+/* お知らせ */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 56px;
+  z-index: 10;
+  padding: 8px 14px;
+  border-radius: 6px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 13px;
+  opacity: 0;
+  transform: translate(-50%, 6px);
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+}
+.toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+/* 普段はクリックを素通りさせる（透明なトーストが下の操作を邪魔しないように）。
+   ボタン付きで出ているときだけ押せるようにする */
+.toast.show.has-action {
+  pointer-events: auto;
+}
+.toast.has-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.toast-action {
+  padding: 2px 10px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.toast-action:hover,
+.toast-action:focus-visible {
+  background: rgba(127, 127, 127, 0.25);
+  outline: none;
+}
+
+/* ---------- 印刷（PDF） ---------- */
+/* 画面では隠しておき、印刷のときだけアプリを隠して印刷用の中身を出す */
+
+.print-area {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 20mm;
+  }
+  html,
+  body {
+    height: auto;
+    background: #fff;
+    color: #000;
+  }
+  .app,
+  .toast,
+  .export-dialog {
+    display: none !important;
+  }
+  .print-area {
+    display: block;
+    font-family: var(--font-sans);
+    font-size: 10.5pt;
+    line-height: 1.8;
+    color: #000;
+  }
+  .print-area.serif {
+    font-family: var(--font-serif);
+  }
+  .print-area h1 {
+    margin: 0 0 1.5em;
+    font-size: 16pt;
+  }
+  .print-area h2 {
+    margin: 0 0 1em;
+    font-size: 13pt;
+  }
+  .print-body {
+    white-space: pre-wrap;   /* 改行・行頭の字下げをそのまま出す */
+    overflow-wrap: anywhere; /* 長い URL でページからはみ出さない */
+  }
+  /* 資料はそれぞれ新しいページから */
+  .print-ref {
+    break-before: page;
+  }
+  /* 資料の画像：本文の後ろに1枚ずつ。ページの途中で切れないように */
+  .print-images img {
+    display: block;
+    max-width: 100%;
+    max-height: 60vh;
+    margin: 1em 0;
+    break-inside: avoid;
+  }
+  /* 縦書きでは行が右から左へ進むので、画像は「縦はページいっぱいまで、横は6割まで」 */
+  html.print-vertical .print-images img {
+    max-width: 60vw;
+    max-height: 100%;
+    margin: 0 1em;
+  }
+  /* 縦書き：文書全体を縦書きにする（中の要素だけだと改ページが効かない）。
+     右から左へ行が進み、ページの終わりまで来たら次のページの右端から続く */
+  html.print-vertical {
+    writing-mode: vertical-rl;
+  }
 }

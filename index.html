@@ -3,7 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>kotoba</title>
+  <title>タコエディタ</title>
+  <meta name="description" content="類語を引きながら書ける、縦書き対応の原稿エディタ">
+  <!-- アプリとして開いたときのタイトルバーの色。紙の外（机）の色に合わせる -->
+  <meta name="theme-color" content="#f1efea" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#161614" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <!-- manifest.webmanifest は pwa.js が Web で開いたときだけ足す（file:// だとコンソールが赤くなるので） -->
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -33,6 +41,10 @@
       </div>
 
       <div class="sheet">
+        <!-- 資料を開いているときだけ出る：どの作品の資料か。作品名を押すと本文に戻る -->
+        <div id="crumb" class="crumb" hidden>
+          <button id="crumbParent" class="crumb-parent" type="button" title="この作品の本文に戻る"></button><span class="crumb-tail">の資料</span>
+        </div>
         <input
           id="title"
           class="title"
@@ -45,6 +57,22 @@
           class="editor"
           spellcheck="false"
           placeholder="文章を書く……"></textarea>
+        <!-- 原稿が空っぽで開いたときだけ出る「戻し方」の案内。書き始めたら消える -->
+        <div id="restoreHint" class="restore-hint" hidden>
+          <p>原稿が消えてしまったときは、バックアップのファイル（.json / .zip）をここにドロップすると戻せる。</p>
+          <button id="restoreFromFolder" type="button" class="restore-hint-btn">バックアップのフォルダを選ぶ</button>
+        </div>
+      </div>
+
+      <!-- 資料に貼った画像の帯（images.js）。資料を開いているときだけ出る。
+           紙の中に入れると縦書きのレイアウトとぶつかるので、紙の下に置く -->
+      <div id="attach" class="attach empty" hidden>
+        <div class="attach-inner">
+          <div id="attachList" class="attach-list" aria-label="資料の画像"></div>
+          <button id="attachAdd" class="attach-add" type="button" title="画像を選んで追加">＋ 画像</button>
+          <span class="attach-hint">貼り付け・ドロップでも追加できる</span>
+        </div>
+        <input type="file" id="attachFile" accept="image/*" multiple hidden>
       </div>
 
       <footer class="status">
@@ -58,9 +86,16 @@
           <button class="seg-btn" type="button" role="radio" data-setting="vertical" data-value="false">横書き</button>
           <button class="seg-btn" type="button" role="radio" data-setting="vertical" data-value="true">縦書き</button>
         </div>
-        <div class="seg" role="radiogroup" aria-label="スクロール">
-          <button class="seg-btn" type="button" role="radio" data-setting="typewriter" data-value="false" title="ふつうのスクロール">通常</button>
-          <button class="seg-btn" type="button" role="radio" data-setting="typewriter" data-value="true" title="書いている行を常に画面の中央に保つ">タイプライター</button>
+        <button id="exportBtn" class="status-text-btn" type="button" title="テキスト・Word・PDF に書き出す">書き出し</button>
+        <!-- 自動バックアップの書き込み許可が切れているときだけ出る（autobackup.js）。押すと許可を求めて再開 -->
+        <button id="autoPaused" class="status-text-btn status-warn" type="button" hidden>自動バックアップ停止中</button>
+        <!-- Chrome / Edge で「インストールできる」状態のときだけ出る（pwa.js） -->
+        <button id="installBtn" class="status-text-btn" type="button" title="デスクトップやタスクバーから開けるアプリとして入れる" hidden>アプリにする</button>
+        <!-- タイプライタースクロールのボタンは外した（仕組みは caret.js に残してある。SPEC.md 参照） -->
+        <div class="seg size" role="group" aria-label="文字サイズ">
+          <button class="seg-btn size-btn" type="button" data-size-step="-1" title="文字を小さく（Ctrl/⌘ と −）" aria-label="文字を小さく">A<span class="size-sign">−</span></button>
+          <button class="seg-btn size-value" type="button" data-size-reset title="標準の大きさに戻す（Ctrl/⌘ と 0）"></button>
+          <button class="seg-btn size-btn" type="button" data-size-step="1" title="文字を大きく（Ctrl/⌘ と ＋）" aria-label="文字を大きく">A<span class="size-sign">＋</span></button>
         </div>
       </footer>
     </main>
@@ -77,24 +112,140 @@
         <div id="results" class="results"></div>
       </section>
 
-      <!-- 下段：メモ一覧（メイン＋ぶら下がる資料） -->
-      <section class="panel-memos" aria-label="メモ">
+      <!-- 下段：原稿の一覧（原稿＋ぶら下がる資料）。画面では「原稿」、コードの中では memo と呼ぶ -->
+      <section class="panel-memos" aria-label="原稿">
         <header class="memos-head">
-          <span>メモ</span>
-          <button id="addMain" class="icon-btn" type="button" title="新しいメモ">+</button>
+          <span>原稿</span>
+          <button id="addMain" class="icon-btn" type="button" title="新しい原稿">+</button>
         </header>
         <div id="memoList" class="memo-list"></div>
       </section>
 
-      <p class="hint">Ctrl+K 類語検索 / Ctrl+F 本文検索 / Esc 本文へ / Ctrl+\ パネル開閉</p>
+      <div class="panel-foot">
+        <p class="hint">Ctrl+K 類語検索 / Ctrl+F 文中を検索 / Esc 資料から本文へ / Ctrl+\ パネル開閉</p>
+        <!-- 「このアプリについて」の入口。ライセンス表記・保存場所の説明・応援リンクはここにまとめる -->
+        <button id="aboutBtn" class="about-link" type="button">タコエディタについて</button>
+      </div>
     </aside>
   </div>
 
+  <!-- 書き出しダイアログ。<dialog> は Esc で閉じる・背後を操作できなくする、を標準でやってくれる -->
+  <dialog id="exportDialog" class="export-dialog" aria-labelledby="exportHeading">
+    <form method="dialog">
+      <h2 id="exportHeading" class="export-heading">書き出し</h2>
+
+      <fieldset class="export-field">
+        <legend>範囲</legend>
+        <label><input type="radio" name="scope" value="main"> 本文だけ</label>
+        <label><input type="radio" name="scope" value="all"> 本文＋資料</label>
+      </fieldset>
+
+      <fieldset class="export-field">
+        <legend>形式</legend>
+        <label><input type="radio" name="format" value="txt"> テキスト（.txt）</label>
+        <label><input type="radio" name="format" value="docx"> Word（.docx）</label>
+        <label><input type="radio" name="format" value="pdf"> PDF（印刷から保存）</label>
+      </fieldset>
+
+      <p class="export-note"></p>
+
+      <div class="export-actions">
+        <button type="submit" value="cancel" class="export-cancel">キャンセル</button>
+        <button type="submit" value="ok" class="export-ok">書き出す</button>
+      </div>
+
+      <!-- バックアップ（backup.js）。上の書き出しは「人に渡す・提出する」用、こっちは「タコエディタに戻す」用 -->
+      <section class="backup-box" aria-labelledby="backupHeading">
+        <div class="backup-head">
+          <h3 id="backupHeading" class="backup-heading">バックアップ</h3>
+          <span id="backupLast" class="backup-last"></span>
+        </div>
+        <p class="backup-desc">すべての作品と資料を1つのファイルに保存する。ブラウザのデータが消えても、このファイルから戻せる。</p>
+        <div class="backup-actions">
+          <button type="button" id="backupSave">バックアップを保存</button>
+          <button type="button" id="backupLoad">バックアップから戻す…</button>
+        </div>
+        <!-- 自動バックアップ（autobackup.js） -->
+        <div class="auto-box">
+          <div class="auto-row">
+            <span class="auto-label">自動バックアップ</span>
+            <span id="autoStatus" class="auto-status"></span>
+          </div>
+          <p id="autoNote" class="backup-desc"></p>
+          <div class="backup-actions">
+            <button type="button" id="autoSetup">フォルダを選んで始める</button>
+            <button type="button" id="autoStop" hidden>止める</button>
+          </div>
+        </div>
+        <input type="file" id="backupFile" accept=".json,application/json" hidden>
+      </section>
+    </form>
+  </dialog>
+
+  <!-- このアプリについて（about.js） -->
+  <dialog id="aboutDialog" class="export-dialog about-dialog" aria-label="タコエディタについて">
+    <form method="dialog">
+      <div class="about-body"></div>
+      <div class="export-actions">
+        <button type="submit" value="close" class="export-ok">閉じる</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- バックアップから戻すときの確認 -->
+  <dialog id="restoreDialog" class="export-dialog" aria-labelledby="restoreHeading">
+    <form method="dialog">
+      <h2 id="restoreHeading" class="export-heading">バックアップから戻す</h2>
+      <p class="restore-summary"></p>
+      <fieldset class="export-field">
+        <legend>戻し方</legend>
+        <label><input type="radio" name="mode" value="merge"> 今の原稿に追加する</label>
+        <label><input type="radio" name="mode" value="update"> 新しい方で更新する（別の端末からの引き継ぎ）</label>
+        <label><input type="radio" name="mode" value="replace"> 今の原稿と入れ替える</label>
+      </fieldset>
+      <p class="export-note restore-note"></p>
+      <div class="export-actions">
+        <button type="submit" value="cancel" class="export-cancel">キャンセル</button>
+        <button type="submit" value="ok" class="export-ok">追加する</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 画像の拡大表示。←→で前後、Delete で削除（元に戻せる）、Esc で閉じる -->
+  <dialog id="imageViewer" class="image-viewer" aria-label="画像">
+    <img class="viewer-img" alt="">
+    <div class="viewer-bar">
+      <span class="viewer-info"></span>
+      <span class="viewer-actions">
+        <button type="button" data-act="prev" title="前の画像（←）">‹</button>
+        <button type="button" data-act="next" title="次の画像（→）">›</button>
+        <button type="button" data-act="delete" title="この画像を削除（Delete）">削除</button>
+        <button type="button" data-act="close" title="閉じる（Esc）">閉じる</button>
+      </span>
+    </div>
+  </dialog>
+
+  <!-- PDF（印刷）用。印刷するときだけ中身を入れて表示する -->
+  <div id="printArea" class="print-area" aria-hidden="true"></div>
+
+  <!-- ちょっとしたお知らせ（⌘S を押したときなど） -->
+  <div id="toast" class="toast" role="status" aria-live="polite"><span class="toast-text"></span><button class="toast-action" type="button" hidden></button></div>
+
   <!-- file:// で直接開けるよう、辞書は fetch ではなく script で読む（SPEC.md 参照） -->
+  <script src="platform.js"></script>
+  <script src="storage.js"></script>
   <script src="dictionary.js"></script>
   <script src="verb.js"></script>
   <script src="caret.js"></script>
   <script src="find.js"></script>
+  <script src="links.js"></script>
+  <script src="images.js"></script>
+  <script src="export.js"></script>
+  <script src="backup.js"></script>
+  <script src="autobackup.js"></script>
+  <script src="notices.js"></script>
+  <script src="about.js"></script>
+  <script src="pwa.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

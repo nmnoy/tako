@@ -1,7 +1,7 @@
 // kotoba - 類語辞典付きメモ（プロトタイプ）
 // 設計の背景は SPEC.md を参照。
 
-(() => {
+(async () => {
   'use strict';
 
   // 辞書は tools/build_dictionary.py が生成する。形は { groups, index, adjectives }（詳しくはスクリプト冒頭）
@@ -40,7 +40,7 @@
   const SAVE_DELAY = 1000;  // 最後の入力から保存までの待ち。保存は10万字だと数msかかるので、打鍵中には走らせない
   const IDLE_DELAY = 250;   // 文字数・メモ一覧のラベルの更新を、手が止まってからまとめてやるまでの待ち
 
-  const STORE_KEY = 'kotoba:v1';
+  // 保存先のキーは storage.js にある（kotoba:v1 は閉じる瞬間の控えとして今も使う）
   const LEGACY_KEY = 'kotoba:text'; // 1枚メモ時代の保存先。初回だけ移行する
 
   // い形容詞の語幹の後ろに来うる文字（暑「か」った、暑「く」、暑「け」れば、暑「さ」、暑「そ」う）
@@ -48,6 +48,8 @@
 
   const app = document.getElementById('app');
   const memoList = document.getElementById('memoList');
+  const crumb = document.getElementById('crumb');
+  const crumbParent = document.getElementById('crumbParent');
   const addMainBtn = document.getElementById('addMain');
 
   // 資料を一覧の中でその場に開いたときの本文欄。1つだけ作っておき、開く行の下へ移動させて使い回す。
@@ -59,6 +61,13 @@
   const editor = document.getElementById('editor');
   const count = document.getElementById('count');
   const settingButtons = document.querySelectorAll('.seg-btn[data-setting]');
+  const sizeLabel = document.querySelector('.size-value');
+  const sizeDown = document.querySelector('[data-size-step="-1"]');
+  const sizeUp = document.querySelector('[data-size-step="1"]');
+
+  // 選べる文字サイズ。1px 刻みだと違いが分からないので、大きくなるほど刻みを粗くする
+  const FONT_SIZES = [13, 14, 15, 16, 17, 18, 20, 22, 24, 26, 28];
+  const DEFAULT_FONT_SIZE = 17;
   const search = document.getElementById('search');
   const results = document.getElementById('results');
 
@@ -68,6 +77,38 @@
 
   // 検索・置換（find.js）。設定を読み込んでから作るので、ここでは入れ物だけ用意する
   let find = null;
+  // 資料の中の URL のリンク化（links.js）
+  let links = null;
+  // 書き出し（export.js）
+  let exporter = null;
+  // 資料の画像（images.js）
+  let images = null;
+  // 自動バックアップ（autobackup.js）
+  let autobackup = null;
+
+  // ちょっとしたお知らせを数秒だけ出す
+  // action を渡すとボタン付きになり、押されるまで消えない（「新しい版があります［更新］」など）
+  const toast = document.getElementById('toast');
+  const toastText = toast.querySelector('.toast-text');
+  const toastAction = toast.querySelector('.toast-action');
+  let toastTimer = 0;
+  let toastRun = null;
+  function showToast(message, action) {
+    toastText.textContent = message;
+    toastRun = action ? action.run : null;
+    toastAction.hidden = !action;
+    toastAction.textContent = action ? action.label : '';
+    toast.classList.toggle('has-action', !!action);
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    if (!action) toastTimer = setTimeout(() => toast.classList.remove('show'), 2400);
+  }
+  toastAction.addEventListener('click', () => {
+    const run = toastRun;
+    toastRun = null;
+    toast.classList.remove('show');
+    if (run) run();
+  });
 
   // ===============================================================
   // メモの保存・読み込み
@@ -82,9 +123,12 @@
     memos: [],        // { id, parentId, title, body, updatedAt }  parentId: null ならメイン
     activeId: null,   // エディタで開いているメモ（メインでもサブでもいい）
     pinnedId: null,   // 右パネルにピン留めしているサブ
+    lastBackupAt: 0,  // 最後にバックアップを保存した時刻（この端末で。バックアップの中身には入れない）
+    deleted: [],      // 消した原稿の印（墓標）{ id, at }。「新しい方で更新」で、消したことを別の端末に伝えるため
     settings: {
-      font: 'sans', vertical: false, typewriter: false,
+      font: 'sans', vertical: false, typewriter: false, fontSize: 17,
       find: { width: true, kana: false, conj: false }, // 検索のゆれの扱い
+      export: { scope: 'main', format: 'txt' },          // 書き出しで前回選んだもの
     },
   };
 
@@ -121,18 +165,21 @@
     return store.memos.filter((m) => m.parentId === mainId);
   }
 
-  function loadStore() {
+  // 保存先（storage.js）。起動時に開く。IndexedDB が本命、localStorage は閉じる瞬間の控え
+  let storage = null;
+
+  // 起動時に、保存先から読んだもの（data）を store に入れる
+  function loadStore(parsed) {
     try {
-      const raw = localStorage.getItem(STORE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
+      if (parsed) {
         if (parsed && Array.isArray(parsed.memos)) {
           // サブ機能以前のデータには parentId がないので、全部メインとして扱う
           store.memos = parsed.memos.map((m) => ({ parentId: null, ...m }));
           store.activeId = parsed.activeId;
           store.pinnedId = parsed.pinnedId || null;
-          store.settings = { ...store.settings, ...parsed.settings };
-          store.settings.find = { width: true, kana: false, conj: false, ...(parsed.settings && parsed.settings.find) };
+          store.lastBackupAt = Number(parsed.lastBackupAt) || 0;
+          store.deleted = Array.isArray(parsed.deleted) ? parsed.deleted : [];
+          store.settings = mergeSettings(store.settings, parsed.settings);
         }
       } else {
         const legacy = localStorage.getItem(LEGACY_KEY);
@@ -142,8 +189,36 @@
       // 壊れたデータ / プライベートウィンドウ等。新規メモで始める
     }
 
+    normalizeStore();
+  }
+
+  // 保存されていた設定（古い版のもの・バックアップのもの）を、今の版の形に揃える
+  function mergeSettings(base, saved) {
+    const s = saved && typeof saved === 'object' ? saved : {};
+    const out = { ...base, ...s };
+    out.find = { width: true, kana: false, conj: false, ...s.find };
+    out.export = { scope: 'main', format: 'txt', ...s.export };
+    // タイプライターはボタンを外したので、以前オンで保存されていても切っておく（仕組み自体は caret.js に残っている）
+    out.typewriter = false;
+    // バックアップは手で書き換えられるかもしれないので、ありえない値は既定に戻す
+    if (!Number.isFinite(out.fontSize)) out.fontSize = DEFAULT_FONT_SIZE;
+    out.fontSize = Math.min(Math.max(out.fontSize, FONT_SIZES[0]), FONT_SIZES[FONT_SIZES.length - 1]);
+    if (out.font !== 'serif') out.font = 'sans';
+    out.vertical = out.vertical === true;
+    return out;
+  }
+
+  // 一覧のつじつまを合わせる（起動時と、バックアップから戻したとき）
+  function normalizeStore() {
     // 親が消えているサブ（データ破損対策）は捨てる
     const ids = new Set(store.memos.map((m) => m.id));
+    // 今ある原稿の墓標は持たない（消したあとバックアップから戻した場合など）。
+    // 残っていると、別の端末に「消した」と伝わって、向こうでその原稿が消されてしまう。
+    // 墓標は小さいが、無限に増えないよう新しい方から 5000 件まで
+    store.deleted = (store.deleted || [])
+      .filter((t) => t && typeof t.id === 'string' && Number.isFinite(t.at) && !ids.has(t.id))
+      .sort((a, b) => b.at - a.at)
+      .slice(0, 5000);
     store.memos = store.memos.filter((m) => !m.parentId || ids.has(m.parentId));
 
     if (mains().length === 0) store.memos.push(newMemo());
@@ -162,14 +237,49 @@
     bodyDirty = false;
   }
 
+  // 戻り値: 保存できたか。
+  // localStorage は 5MB 前後でいっぱいになり、そのとき setItem は例外を投げる。
+  // 黙って握りつぶすと「書いたのに次に開いたら消えていた」になるので、必ず知らせる（ただし1分に1回まで）
+  //
+  // 保存先が IndexedDB になったので、保存は非同期（戻り値は「保存できたか」の Promise）。
+  // ただし store の中身は呼んだ瞬間に複製されるので、await しなくても「呼んだ時点の内容」が保存される。
+  // 結果を待つ必要があるのは、バックアップから戻すときのように「保存できなかったら巻き戻す」場面だけ
+  let lastSaveWarn = 0;
   function saveNow() {
     clearTimeout(saveTimer);
     syncBody();
-    try {
-      localStorage.setItem(STORE_KEY, JSON.stringify(store));
-    } catch (_) {
-      // 容量オーバー等。プロトタイプなので黙って諦める（SPEC.md の既知の課題参照）
-    }
+    if (!storage) return Promise.resolve(false); // 起動前（読み込みが終わる前）は保存しない。空の状態で上書きしないため
+    return storage.save(store).then(() => {
+      if (autobackup) autobackup.changed(); // 保存できたら、自動バックアップにも「変わった」と伝える（書き出しは数分おき）
+      return true;
+    }, () => {
+      if (Date.now() - lastSaveWarn > 60000) {
+        lastSaveWarn = Date.now();
+        showToast('保存できなかった（ブラウザの保存容量がいっぱい）。書き出し → バックアップを保存してね');
+      }
+      return false;
+    });
+  }
+
+  // ページが隠れる・閉じる瞬間用。IndexedDB への保存も始めるが、終わる保証がないので
+  // 同期で書ける localStorage にも控えを書く（次に開いたとき、新しい方が使われる）
+  function saveOnLeave() {
+    if (!storage) return;
+    saveNow();
+    storage.saveMirror(store);
+    if (autobackup) autobackup.flush(); // 閉じる・隠すときは待たずに書き出しを始める（終わる保証はない）
+  }
+
+  // 中身のある原稿が1つもないか（新しく使い始めたとき・ブラウザのデータが消えたとき）
+  function storeIsEmpty() {
+    syncBody();
+    return store.memos.every((m) => !m.title.trim() && !m.body.trim());
+  }
+
+  // 原稿が空っぽのときだけ、紙の下に「戻し方」の案内を出す
+  const restoreHint = document.getElementById('restoreHint');
+  function updateRestoreHint() {
+    restoreHint.hidden = !storeIsEmpty();
   }
 
   // 手が止まって1秒たち、さらにブラウザが暇なとき（描画や入力処理の合間）に保存する
@@ -203,6 +313,24 @@
     return '無題';
   }
 
+  // 一覧に出す文字数。本文が変わっていなければ前に数えた値を使う
+  // （一覧は原稿を切り替えるたびに作り直すので、毎回全部を数え直すと長編が多いときに重い）
+  const countCache = new Map(); // id → { body, n }
+  function memoCount(memo) {
+    const c = countCache.get(memo.id);
+    if (c && c.body === memo.body) return c.n;
+    const n = countChars(memo.body);
+    countCache.set(memo.id, { body: memo.body, n });
+    return n;
+  }
+  function updateItemCount(memo) {
+    if (!memo) return;
+    const text = memoCount(memo).toLocaleString();
+    for (const el of document.querySelectorAll(`[data-count-for="${memo.id}"]`)) {
+      if (el.textContent !== text) el.textContent = text;
+    }
+  }
+
   // 一覧の1行を作る。actions は行の右端の小さいボタン（開いて見る・削除）
   function makeItem({ memo, classes, onOpen, actions = [] }) {
     // 行を <button> にすると中にボタンを入れられない（button の入れ子は HTML 的に不正）。
@@ -213,12 +341,28 @@
     item.tabIndex = 0;
     if (classes.includes('active')) item.setAttribute('aria-current', 'true');
 
+    // 資料の行には「カード」のアイコンを付けて、本文と見分けやすくする
+    if (memo.parentId) {
+      const icon = document.createElement('span');
+      icon.className = 'memo-icon';
+      icon.setAttribute('aria-hidden', 'true');
+      item.appendChild(icon);
+    }
+
     const label = document.createElement('span');
     label.className = 'memo-label';
     label.textContent = memoLabel(memo);
     // 打鍵ごとに一覧を作り直さず、ラベルだけ差し替えられるよう目印を付ける
     label.dataset.labelFor = memo.id;
     item.appendChild(label);
+
+    // 文字数（ラベルと同じく、打っている間は手が止まったときにだけ差し替える）
+    const cnt = document.createElement('span');
+    cnt.className = 'memo-count';
+    cnt.dataset.countFor = memo.id;
+    cnt.textContent = memoCount(memo).toLocaleString();
+    cnt.title = '文字数（改行は数えない）';
+    item.appendChild(cnt);
 
     for (const a of actions) {
       const btn = document.createElement('button');
@@ -260,7 +404,7 @@
           isCurrent && m.id !== store.activeId ? 'current-parent' : '',
         ].filter(Boolean),
         onOpen: () => openMemo(m.id),
-        actions: [{ text: '×', title: 'このメモを削除', onClick: () => deleteMemo(m.id) }],
+        actions: [{ text: '×', title: 'この原稿を削除', onClick: () => deleteMemo(m.id) }],
       }));
 
       for (const s of subsOf(m.id)) {
@@ -318,10 +462,21 @@
     }
   }
 
+  // 原稿ごとのカーソル位置とスクロール位置（このページを開いている間だけ覚える。保存はしない）。
+  // 本文と資料を Esc やパンくずで行き来するたびに先頭に飛ばされると、どこを書いていたか見失う
+  const viewState = new Map(); // id → { start, end, top, left }
+  function rememberView() {
+    if (!store.activeId) return;
+    viewState.set(store.activeId, {
+      start: editor.selectionStart, end: editor.selectionEnd, top: editor.scrollTop, left: editor.scrollLeft,
+    });
+  }
+
   function openMemo(id) {
     const memo = findMemo(id);
     if (!memo) return;
     syncBody(); // 切り替える前に、今のメモの本文を確定させる
+    if (id !== store.activeId) rememberView();
 
     store.activeId = id;
 
@@ -333,24 +488,49 @@
     if (pinned && pinned.parentId !== activeMain().id) store.pinnedId = null;
 
     titleInput.value = memo.title;
-    titleInput.placeholder = memo.parentId ? '資料のタイトル（例：主人公、世界観）' : 'タイトル';
+    titleInput.placeholder = memo.parentId ? '資料のタイトル' : 'タイトル';
+
+    // 資料を開いているときは、紙の色を「資料用の紙」に変え、どの作品の資料かを上に出す。
+    // 視界で一番広い面積（紙）が変わるので、本文ではなく資料を書いていることが意識しなくても分かる
+    const parent = memo.parentId ? findMemo(memo.parentId) : null;
+    app.classList.toggle('is-sub', !!parent);
+    crumb.hidden = !parent;
+    if (parent) {
+      crumbParent.textContent = memoLabel(parent);
+      crumbParent.dataset.id = parent.id;
+    }
     // 注意: value を代入するとブラウザの Undo 履歴がリセットされる。
     // ここではそれが正解。リセットされないと、Ctrl+Z で別のメモの文章が復活してしまう。
     editor.value = memo.body;
-    editor.setSelectionRange(0, 0);
-    editor.scrollTop = 0;
-    editor.scrollLeft = 0;
+    const view = viewState.get(id);
+    if (view && view.end <= memo.body.length) {
+      editor.setSelectionRange(view.start, view.end);
+      editor.scrollTop = view.top;
+      editor.scrollLeft = view.left;
+    } else {
+      editor.setSelectionRange(0, 0);
+      editor.scrollTop = 0;
+      editor.scrollLeft = 0;
+    }
     bodyDirty = false;
     caretEngine.schedule({ text: true, center: true });
     if (find) find.refresh(); // 検索バーが開いていれば、新しいメモで探し直す
+    if (images) images.show(memo); // 資料なら紙の下に画像の帯を出す（本文では隠す）
+    if (links) links.refresh(); // 資料なら URL に下線を引く（本文では消す）
 
     target = null; // 前のメモで選んでいた置換対象は無効
     origin = null;
 
     renderList();
+    totalCache = null;
     updateCount();
     scheduleSave();
-    editor.focus();
+    editor.focus({ preventScroll: true });
+    // focus でスクロール位置が動くブラウザがあるので、覚えていた位置をもう一度当てる
+    if (view && view.end <= memo.body.length) {
+      editor.scrollTop = view.top;
+      editor.scrollLeft = view.left;
+    }
   }
 
   function addMain() {
@@ -403,6 +583,11 @@
 
     store.memos = store.memos.filter((m) => !removeIds.has(m.id));
     if (removeIds.has(store.pinnedId)) store.pinnedId = null;
+    // 消した印を残す（資料も一緒に）。別の端末で「新しい方で更新」したとき、向こうでも消せるように
+    const at = Date.now();
+    store.deleted = [...[...removeIds].map((id) => ({ id, at })), ...(store.deleted || [])];
+    // 消した資料に貼ってあった画像も消す（残すと、もう見えないのに容量だけ食い続ける）
+    storage.deleteImagesOf([...removeIds]).catch(() => {});
 
     if (mains().length === 0) {
       const fresh = newMemo();
@@ -497,6 +682,7 @@
     idleTimer = setTimeout(() => {
       syncBody();
       updateLabel(activeMemo());
+      updateItemCount(activeMemo());
       updateCount();
     }, IDLE_DELAY);
   }
@@ -506,7 +692,12 @@
   // ===============================================================
 
   function applySettings() {
-    const { font, vertical, typewriter } = store.settings;
+    const { font, vertical, typewriter, fontSize } = store.settings;
+    // 文字サイズは CSS 変数で渡す。1行の幅（--column）もこの変数から計算されるので、一緒に伸び縮みする
+    app.style.setProperty('--text-size', fontSize + 'px');
+    sizeLabel.textContent = fontSize;
+    sizeDown.disabled = fontSize <= FONT_SIZES[0];
+    sizeUp.disabled = fontSize >= FONT_SIZES[FONT_SIZES.length - 1];
     app.classList.toggle('font-serif', font === 'serif');
     app.classList.toggle('vertical', vertical);
     app.classList.toggle('typewriter', typewriter);
@@ -519,6 +710,24 @@
     // フォント・書字方向・余白が変わるとカーソルの位置の計算が全部変わるので、測り直す
     // （setTypewriter の中で余白を入れ直してから layout する）
     caretEngine.setTypewriter(typewriter);
+  }
+
+  // 文字サイズを1段階ずつ変える。保存値がリストにない数（手で書き換えた等）でも、近い段から動かす
+  function stepFontSize(dir) {
+    const cur = store.settings.fontSize;
+    const next = dir > 0
+      ? FONT_SIZES.find((s) => s > cur)
+      : [...FONT_SIZES].reverse().find((s) => s < cur);
+    if (next === undefined) return;
+    store.settings.fontSize = next;
+    applySettings();
+    scheduleSave();
+  }
+
+  function resetFontSize() {
+    store.settings.fontSize = DEFAULT_FONT_SIZE;
+    applySettings();
+    scheduleSave();
   }
 
   // data-value は文字列なので、真偽値の設定は 'true' / 'false' を戻してから入れる
@@ -892,6 +1101,7 @@
   editor.addEventListener('input', () => {
     bodyDirty = true;
     totalCache = null;
+    if (!restoreHint.hidden) restoreHint.hidden = true; // 書き始めたら「戻し方」の案内は引っ込める
     activeMemo().updatedAt = Date.now();
     // 日本語の変換中は1文字ごとに input が飛んでくるので、確定するまで何もしない
     if (isComposing) return;
@@ -930,6 +1140,7 @@
   // --- タイトル ---
 
   titleInput.addEventListener('input', () => {
+    if (!restoreHint.hidden) restoreHint.hidden = true;
     const memo = activeMemo();
     memo.title = titleInput.value;
     memo.updatedAt = Date.now();
@@ -949,18 +1160,22 @@
   // --- その場で開いた資料 ---
 
   // 一覧の中でも書き足せる（本文を書きながら思いついた設定をメモする用）
+  let refCountTimer = 0;
   refBody.addEventListener('input', () => {
     const memo = findMemo(store.pinnedId);
     if (!memo) return;
     memo.body = refBody.value;
     memo.updatedAt = Date.now();
     updateLabel(memo);
+    clearTimeout(refCountTimer);
+    refCountTimer = setTimeout(() => updateItemCount(memo), IDLE_DELAY);
     scheduleSave();
   });
 
   // --- メモ一覧 ---
 
   addMainBtn.addEventListener('click', addMain);
+  crumbParent.addEventListener('click', () => openMemo(crumbParent.dataset.id));
 
   // --- ステータスのボタン ---
 
@@ -970,6 +1185,12 @@
     btn.addEventListener('pointerdown', (ev) => ev.preventDefault());
     btn.addEventListener('click', () => setSetting(btn.dataset.setting, btn.dataset.value));
   }
+  for (const btn of [sizeDown, sizeUp, sizeLabel]) {
+    btn.addEventListener('pointerdown', (ev) => ev.preventDefault());
+  }
+  sizeDown.addEventListener('click', () => stepFontSize(-1));
+  sizeUp.addEventListener('click', () => stepFontSize(1));
+  sizeLabel.addEventListener('click', resetFontSize);
 
   // --- 検索 ---
 
@@ -997,6 +1218,9 @@
   document.addEventListener('keydown', (e) => {
     // IME 変換中のキーは一切拾わない（変換確定の Enter 誤爆を防ぐ）
     if (e.isComposing || e.keyCode === 229) return;
+    // ダイアログ（書き出しなど）が開いている間は、アプリのショートカットは全部お休み。
+    // でないと「Esc で本文に戻る」がダイアログの Esc を横取りして、ダイアログが閉じなくなる
+    if (document.querySelector('dialog[open]')) return;
     const mod = e.ctrlKey || e.metaKey;
 
     // --- 検索・置換 ---
@@ -1021,6 +1245,24 @@
       return;
     }
 
+    // --- ⌘S / Ctrl+S ---
+    // 物書きは癖で押すが、そのままだとブラウザの「ページを保存」が開く。自動保存しているので、そう伝えるだけにする
+    if (mod && !e.shiftKey && !e.altKey && e.code === 'KeyS') {
+      e.preventDefault();
+      saveNow();
+      showToast('自動で保存されてるよ。ファイルにするなら右下の「書き出し」から');
+      return;
+    }
+
+    // --- 文字サイズ：Ctrl/⌘ と ＋ − 0 ---
+    // ブラウザの拡大縮小と同じキーだが、このアプリでは本文の文字サイズを変える方が役に立つので横取りする。
+    // JIS 配列の「＋」は Shift+; なので e.key で '+' ';' '=' のどれでも受ける（テンキーも）
+    if (mod && !e.altKey) {
+      if (['+', '=', ';'].includes(e.key) || e.code === 'NumpadAdd') { e.preventDefault(); stepFontSize(1); return; }
+      if (e.key === '-' || e.code === 'NumpadSubtract') { e.preventDefault(); stepFontSize(-1); return; }
+      if (e.key === '0' || e.code === 'Numpad0') { e.preventDefault(); resetFontSize(); return; }
+    }
+
     if (mod && e.key.toLowerCase() === 'k') {
       e.preventDefault();
       app.classList.remove('panel-hidden');
@@ -1031,8 +1273,13 @@
       app.classList.toggle('panel-hidden');
       editor.focus();
     } else if (e.key === 'Escape' && document.activeElement !== editor) {
+      // 検索ボックスや一覧にいるとき：入力欄に戻る
       e.preventDefault();
       editor.focus();
+    } else if (e.key === 'Escape' && activeMemo().parentId) {
+      // 資料を書いているとき：その作品の本文に戻る（パンくずの作品名を押すのと同じ）
+      e.preventDefault();
+      openMemo(activeMemo().parentId);
     } else if (e.key === 'ArrowDown' && document.activeElement === search) {
       // 検索ボックスから↓で最初の候補へ
       const first = results.querySelector('.candidate');
@@ -1048,15 +1295,24 @@
   // デバウンス中（最後の入力から500ms以内）にタブを閉じると、最後の数文字が消える。
   // ページが隠れる・閉じる瞬間に即保存する。
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') saveNow();
+    if (document.visibilityState === 'hidden') saveOnLeave();
   });
-  window.addEventListener('pagehide', saveNow);
+  window.addEventListener('pagehide', saveOnLeave);
 
   // ===============================================================
   // 起動
   // ===============================================================
 
-  loadStore();
+  // 保存先を開いて読み込むまでは非同期。その間に打たれた文字が、読み込んだ原稿で上書きされて消えないよう、
+  // 読み込みが終わるまで入力欄を読み取り専用にしておく（普通は一瞬で終わる）
+  editor.readOnly = true;
+  titleInput.readOnly = true;
+  storage = await window.KotobaStorage.create();
+  const loaded = await storage.load();
+  loadStore(loaded.data); // 何もなければ、1枚メモ時代のデータ（さらに古い形式）を探して引き継ぐ
+  editor.readOnly = false;
+  titleInput.readOnly = false;
+
   find = window.KotobaFind.create({
     editor,
     layer: editor.parentElement,
@@ -1066,6 +1322,181 @@
     options: store.settings.find,
     onOptionsChange: scheduleSave,
   });
+  links = window.KotobaLinks.create({
+    editor,
+    layer: editor.parentElement,
+    caret: caretEngine,
+    // リンクにするのは資料だけ。本文に下線が出ると、書いている最中に目に入る
+    isActive: () => { const m = activeMemo(); return !!(m && m.parentId); },
+    isMac: IS_MAC,
+  });
+  exporter = window.KotobaExport.create({
+    // 書き出すのは「今開いている作品」。資料を開いているときに押しても、親の作品が丸ごと対象
+    getParts: (withRefs) => {
+      syncBody(); // 打ったばかりの文字も含める
+      const main = activeMain();
+      const parts = [{ kind: 'main', id: main.id, title: main.title.trim(), body: main.body }];
+      if (withRefs) {
+        for (const s of subsOf(main.id)) parts.push({ kind: 'ref', id: s.id, title: memoLabel(s), body: s.body });
+      }
+      return parts;
+    },
+    getStyle: () => ({ serif: store.settings.font === 'serif', vertical: store.settings.vertical }),
+    options: store.settings.export,
+    onOptionsChange: scheduleSave,
+    getImages: (memoId) => storage.imagesOf(memoId),
+  });
+  document.getElementById('exportBtn').addEventListener('click', () => exporter.open());
+
+  images = window.KotobaImages.create({
+    storage,
+    getMemo: activeMemo,
+    makeId,
+    notify: showToast,
+    onChange: () => { if (autobackup) autobackup.changed(); },
+  });
+  editor.addEventListener('paste', (e) => images.handlePaste(e));
+
+  // バックアップから戻す。保存に失敗したら（容量オーバー）、戻す前の状態に巻き戻す。
+  // 画面だけ新しくなって保存されていない、が一番たちが悪い（次に開いたとき何が残っているか分からない）
+  //
+  // 注意: store や store.settings のオブジェクトを丸ごと差し替えないこと。
+  // find.js は store.settings.find を、export.js は store.settings.export を「参照で」握っているので、
+  // 差し替えると、そっちでの設定変更が古いオブジェクトに書かれて保存されなくなる。中身だけ書き換える
+  const DISPLAY_KEYS = ['font', 'vertical', 'fontSize']; // バックアップから戻す設定は見た目のものだけ
+
+  function snapshot() {
+    return {
+      memos: store.memos,
+      activeId: store.activeId,
+      pinnedId: store.pinnedId,
+      deleted: store.deleted,
+      display: Object.fromEntries(DISPLAY_KEYS.map((k) => [k, store.settings[k]])),
+    };
+  }
+  function restoreSnapshot(snap) {
+    store.memos = snap.memos;
+    store.activeId = snap.activeId;
+    store.pinnedId = snap.pinnedId;
+    store.deleted = snap.deleted;
+    Object.assign(store.settings, snap.display);
+  }
+
+  async function commitOrRollback(change) {
+    syncBody();
+    const before = snapshot(); // memos は配列ごと差し替えるので、元の配列をそのまま取っておけば戻せる
+    change();
+    normalizeStore();
+    const ok = await saveNow();
+    if (!ok) {
+      restoreSnapshot(before);
+      normalizeStore();
+    }
+    applySettings();
+    openMemo(store.activeId);
+    updateRestoreHint(); // 戻したら案内は消える
+    return ok;
+  }
+
+  const backupUi = window.KotobaBackup.create({
+    getStore: () => { syncBody(); return store; },
+    // 自動バックアップが動いていれば、その時刻も「前回のバックアップ」として数える（オンなのに「まだ一度も」と出ると不安になるので）
+    getLastBackupAt: () => Math.max(store.lastBackupAt || 0, autobackup ? autobackup.info().lastAt || 0 : 0),
+    onBackedUp: (t) => { store.lastBackupAt = t; saveNow(); },
+    replaceWith: (data) => commitOrRollback(() => {
+      store.memos = data.memos;
+      store.activeId = data.activeId;
+      store.pinnedId = data.pinnedId;
+      store.deleted = data.deleted || [];
+      if (data.settings) {
+        const merged = mergeSettings(store.settings, data.settings);
+        for (const k of DISPLAY_KEYS) store.settings[k] = merged[k];
+      }
+    }),
+    mergeWith: (result) => commitOrRollback(() => {
+      store.memos = result.memos;
+      if (result.deleted) store.deleted = result.deleted;
+      // 取り込んだら、こちらに残っている空っぽの原稿（新しい端末で最初にできる「無題」）は片付ける。
+      // 全部が空っぽなら1つは残す（原稿が0件にはしない）
+      const isEmpty = (m) => !m.parentId && !m.title.trim() && !m.body.trim() && !store.memos.some((x) => x.parentId === m.id);
+      if (store.memos.some((m) => !m.parentId && !isEmpty(m))) store.memos = store.memos.filter((m) => !isEmpty(m));
+      if (result.firstAddedMainId) store.activeId = result.firstAddedMainId; // 足したものが見えるように
+    }),
+    makeId,
+    notify: showToast,
+    storage,
+    onImagesChanged: () => images.refresh(),
+    onDropFiles: (files) => images.addFiles(files),
+    // 前回選んだ戻し方（追加 / 新しい方で更新）。引き継ぎで毎回使う人が、毎回選び直さなくていいように
+    getMode: () => store.settings.restoreMode,
+    setMode: (m) => { store.settings.restoreMode = m; scheduleSave(); },
+  });
+  // --- 自動バックアップ ---
+  const autoEls = {
+    status: document.getElementById('autoStatus'),
+    note: document.getElementById('autoNote'),
+    setup: document.getElementById('autoSetup'),
+    stop: document.getElementById('autoStop'),
+    paused: document.getElementById('autoPaused'),
+  };
+  function renderAuto({ status, folder, lastAt, errorText, supported }) {
+    const ago = lastAt ? window.KotobaBackup.ago(lastAt) : '';
+    const text = {
+      unsupported: 'このブラウザでは使えない',
+      off: 'オフ',
+      active: `オン（${folder}）`,
+      paused: '停止中',
+      error: '止まっている',
+    }[status];
+    autoEls.status.textContent = text;
+    autoEls.status.className = 'auto-status' + (status === 'active' ? ' on' : status === 'paused' || status === 'error' ? ' warn' : '');
+    autoEls.note.textContent = {
+      unsupported: 'パソコンの Chrome / Edge で使える。このブラウザでは、ときどき上の「バックアップを保存」を押してね。',
+      off: '選んだフォルダに、書いている途中で自動的にバックアップを書き出す。ブラウザのデータが消えても、そのファイルをドロップすれば戻せる。オンにしておくのがおすすめ。',
+      active: `数分おきに「${folder}」に書き出している（1日ごとの控えも14日分）。${ago ? `最後の書き出し：${ago}。` : ''}`,
+      paused: `「${folder}」への書き込みの許可が切れている（ブラウザを開き直すと切れることがある）。「再開する」を押して許可してね。`,
+      error: `${errorText}。フォルダを選び直してね。`,
+    }[status];
+    autoEls.setup.hidden = status === 'unsupported';
+    autoEls.setup.textContent = status === 'paused' ? '再開する' : status === 'active' || status === 'error' ? 'フォルダを変える' : 'フォルダを選んで始める';
+    autoEls.stop.hidden = !(status === 'active' || status === 'paused' || status === 'error');
+    // 右下の「停止中」は、許可切れ・エラーのときだけ（普段は何も出さない）
+    autoEls.paused.hidden = !(status === 'paused' || status === 'error');
+    autoEls.paused.textContent = status === 'error' ? '自動バックアップが止まっている' : '自動バックアップ停止中';
+    document.getElementById('restoreFromFolder').hidden = !supported;
+  }
+
+  autobackup = window.KotobaAutoBackup.create({
+    storage,
+    makeBlob: backupUi.makeBlob,
+    isEmpty: storeIsEmpty,
+    notify: showToast,
+    onStatus: renderAuto,
+  });
+  // どれもクリックの中で呼ぶ（フォルダ選択・許可のダイアログはクリックがないと出せない）
+  autoEls.setup.addEventListener('click', () => (autobackup.info().status === 'paused' ? autobackup.resume() : autobackup.choose()));
+  autoEls.stop.addEventListener('click', () => { autobackup.stop(); showToast('自動バックアップを止めた。'); });
+  autoEls.paused.addEventListener('click', () => {
+    if (autobackup.info().status === 'error') { autobackup.choose(); return; }
+    autobackup.resume().then((ok) => { if (ok) showToast('自動バックアップを再開した。'); });
+  });
+  document.getElementById('restoreFromFolder').addEventListener('click', async () => {
+    const file = await autobackup.chooseForRestore();
+    if (file === undefined) return; // キャンセル
+    if (!file) { showToast('このフォルダにはタコエディタのバックアップが見つからなかった。'); return; }
+    backupUi.openFile(file);
+  });
+  autobackup.init();
+
+  window.KotobaAbout.create({ isMac: IS_MAC });
+
+  window.KotobaPWA.create({
+    installButton: document.getElementById('installBtn'),
+    // 新しい版が届いた。勝手に読み直すと書いている最中の人が困るので、押してもらう
+    onUpdateReady: (apply) => showToast('新しい版があります', { label: '更新', run: apply }),
+    beforeReload: saveNow,
+  });
   applySettings();
   openMemo(store.activeId);
+  updateRestoreHint();
 })();
