@@ -495,12 +495,14 @@
   function create({
     getStore, getLastBackupAt, onBackedUp, replaceWith, mergeWith, makeId, notify,
     storage, onImagesChanged, onDropFiles, getMode, setMode,
+    folder = null, // { name(), ensure(), write(name, blob) } … 自動バックアップのフォルダ（あれば手動の保存もそこへ）
   }) {
     const exportDialog = document.getElementById('exportDialog');
     const lastEl = document.getElementById('backupLast');
     const saveBtn = document.getElementById('backupSave');
     const loadBtn = document.getElementById('backupLoad');
     const fileInput = document.getElementById('backupFile');
+    const destEl = document.getElementById('backupDest');
 
     const dialog = document.getElementById('restoreDialog');
     const form = dialog.querySelector('form');
@@ -513,6 +515,10 @@
       const t = getLastBackupAt();
       lastEl.textContent = t ? `前回：${ago(t)}` : 'まだ一度も保存していない';
       lastEl.classList.toggle('stale', !t || Date.now() - t > STALE_DAYS * 86400000);
+      // 保存先をはっきり書く。手動と自動で置き場所が違うと、消えたときに探せない
+      destEl.textContent = folder && folder.name()
+        ? `保存先：「${folder.name()}」フォルダ（自動バックアップと同じ場所）`
+        : '保存先：ダウンロードフォルダ（下の自動バックアップでフォルダを選ぶと、手動の保存もそこに入る）';
     }
 
     // バックアップの中身を作る（手動の「バックアップを保存」と、自動バックアップ（autobackup.js）で共通）。
@@ -537,20 +543,34 @@
       }
     }
 
+    // 保存先: 自動バックアップのフォルダを選んでいればそこ、なければダウンロード（folder は app.js が渡す）。
+    // 戻り値: { name, where }（where は「『〇〇』フォルダ」か「ダウンロードフォルダ」。お知らせに使う）
     async function save(suffix = '') {
+      // 先に書き込みの許可を確かめる（許可のダイアログはクリックの直後にしか出せない。中身を作ってからだと間に合わないことがある）
+      const useFolder = folder && folder.name() ? await folder.ensure() : false;
       const now = new Date();
       const { blob, ext } = await makeBlob(now);
       const name = fileName(now, suffix, ext);
-      await root.KotobaPlatform.saveFile(name, blob);
+      let where = 'ダウンロードフォルダ';
+      if (useFolder) {
+        try {
+          await folder.write(name, blob);
+          where = `「${folder.name()}」フォルダ`;
+        } catch (_) {
+          await root.KotobaPlatform.saveFile(name, blob); // フォルダに書けなかったらダウンロードに逃がす（保存しないよりいい）
+        }
+      } else {
+        await root.KotobaPlatform.saveFile(name, blob);
+      }
       onBackedUp(now.getTime());
       showLast();
-      return name;
+      return { name, where };
     }
 
     const NOTES = {
       merge: ['追加する', '今ある原稿はそのまま残して、バックアップの原稿を一覧に足す。まったく同じ原稿がすでにあれば飛ばす。'],
       update: ['更新する', '別の端末で書いた続きを取り込む用。原稿ごとに新しい方を残す。両方の端末で書き換えていた原稿は、どちらも消さずに「（別の端末の版）」を足す。別の端末で消した原稿は、こちらでも消す（消したあとにこちらで書き換えていたら残す）。'],
-      replace: ['入れ替える', '今の原稿はすべて消えて、バックアップの中身に入れ替わる。念のため、入れ替える前の状態を「…_入れ替え前」としてダウンロードしておく。'],
+      replace: ['入れ替える', '今の原稿はすべて消えて、バックアップの中身に入れ替わる。念のため、入れ替える前の状態を「…_入れ替え前」としてバックアップの保存先に残しておく。'],
     };
     function syncNote() {
       const [label, text] = NOTES[form.elements.mode.value] || NOTES.merge;
@@ -599,7 +619,7 @@
 
       if (mode === 'replace') {
         // 入れ替えは取り消せないので、消える前の状態を必ずファイルに残す
-        await save('_入れ替え前');
+        const before = await save('_入れ替え前');
         // 入れ替えた原稿は「この版を受け取った」印（base）を付けておく。あとで「新しい方で更新」できるように
         const ok = await replaceWith({ ...data, memos: data.memos.map((m) => ({ ...m, base: m.updatedAt })) });
         if (!ok) { notify(FAIL); return; }
@@ -609,7 +629,7 @@
           n = await putImages(data.images.map((im) => ({ ...im })));
         }
         onImagesChanged();
-        notify('バックアップの中身に入れ替えた。前の状態はダウンロードに保存してある。' + imageNote(n));
+        notify(`バックアップの中身に入れ替えた。前の状態は${before.where}に保存してある。` + imageNote(n));
         return;
       }
 
@@ -659,7 +679,7 @@
     document.getElementById('exportBtn').addEventListener('click', () => setTimeout(showLast));
 
     saveBtn.addEventListener('click', () => {
-      save().then((name) => notify(name.endsWith('.zip') ? 'バックアップを保存した（画像があるので zip）。' : 'バックアップを保存した。'));
+      save().then(({ name, where }) => notify(`${where}に保存した${name.endsWith('.zip') ? '（画像があるので zip）' : ''}。`));
     });
     loadBtn.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', () => {
@@ -696,7 +716,7 @@
       else if (!(onDropFiles && onDropFiles(files))) notify('ここに落とせるのは、タコエディタのバックアップか、資料に貼る画像だけ。');
     });
 
-    return { save, openFile, makeBlob };
+    return { save, openFile, makeBlob, refresh: showLast };
   }
 
   root.KotobaBackup = { VERSION, build, fileName, parse, parseFile, unzip, merge, syncMerge, mergeImages, ago, create };

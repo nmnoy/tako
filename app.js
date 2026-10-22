@@ -1428,6 +1428,12 @@
     onImagesChanged: () => images.refresh(),
     onDropFiles: (files) => images.addFiles(files),
     // 前回選んだ戻し方（追加 / 新しい方で更新）。引き継ぎで毎回使う人が、毎回選び直さなくていいように
+    // 手動のバックアップも、自動バックアップのフォルダがあればそこへ（置き場所を1か所にまとめる）
+    folder: {
+      name: () => (autobackup ? autobackup.folderName() : ''),
+      ensure: () => autobackup.ensureFolder(),
+      write: (name, blob) => autobackup.saveToFolder(name, blob),
+    },
     getMode: () => store.settings.restoreMode,
     setMode: (m) => { store.settings.restoreMode = m; scheduleSave(); },
   });
@@ -1452,8 +1458,11 @@
     autoEls.status.className = 'auto-status' + (status === 'active' ? ' on' : status === 'paused' || status === 'error' ? ' warn' : '');
     autoEls.note.textContent = {
       unsupported: 'パソコンの Chrome / Edge で使える。このブラウザでは、ときどき上の「バックアップを保存」を押してね。',
-      off: '選んだフォルダに、書いている途中で自動的にバックアップを書き出す。ブラウザのデータが消えても、そのファイルをドロップすれば戻せる。オンにしておくのがおすすめ。',
-      active: `数分おきに「${folder}」に書き出している（1日ごとの控えも14日分）。${ago ? `最後の書き出し：${ago}。` : ''}`,
+      // デスクトップ・ホームなど「大事な場所そのもの」は Chrome が選ばせてくれない（「このフォルダを開けません」）。
+      // 中に作ったフォルダなら選べるので、選ぶ前に一言そう伝える
+      off: '選んだフォルダに、書いている途中で自動的にバックアップを書き出す。ブラウザのデータが消えても、そのファイルをドロップすれば戻せる。オンにしておくのがおすすめ。フォルダを選ぶときは、デスクトップや「書類」そのものではなく、その中に「タコエディタのバックアップ」などのフォルダを作って選んでね（選ぶ画面の「新規フォルダ」で作れる）。',
+      // フォルダの場所（パス）はブラウザが教えてくれない（ユーザー名やフォルダ構成が分かってしまうため）。名前で探してもらう
+      active: `数分おきに「${folder}」に書き出している（1日ごとの控えも14日分）。上の「バックアップを保存」も同じフォルダに入る。${ago ? `最後の書き出し：${ago}。` : ''}フォルダの場所（パス）はブラウザの仕組みで表示できないので、見失ったらフォルダ名で検索してね。`,
       paused: `「${folder}」への書き込みの許可が切れている（ブラウザを開き直すと切れることがある）。「再開する」を押して許可してね。`,
       error: `${errorText}。フォルダを選び直してね。`,
     }[status];
@@ -1464,6 +1473,7 @@
     autoEls.paused.hidden = !(status === 'paused' || status === 'error');
     autoEls.paused.textContent = status === 'error' ? '自動バックアップが止まっている' : '自動バックアップ停止中';
     document.getElementById('restoreFromFolder').hidden = !supported;
+    if (backupUi) backupUi.refresh(); // 手動バックアップの「保存先」の表示も合わせる
   }
 
   autobackup = window.KotobaAutoBackup.create({

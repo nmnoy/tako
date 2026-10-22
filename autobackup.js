@@ -229,7 +229,27 @@
       return file;
     }
 
-    return { init, changed, flush, writeNow, choose, resume, stop, chooseForRestore, info, supported };
+    // ------------------------------------------------------------
+    // 手動のバックアップも同じフォルダに置く（置き場所が分かれていると、消えたときに探せない）
+    // ------------------------------------------------------------
+    // 書き込みの許可を確かめ、切れていれば求める。許可のダイアログはクリックの直後にしか出せないので、
+    // バックアップの中身を作る（画像が多いと時間がかかる）より先に呼ぶこと。戻り値: このフォルダに書けるか
+    async function ensureFolder() {
+      if (!dir) return false;
+      let perm = 'prompt';
+      try { perm = await dir.queryPermission({ mode: 'readwrite' }); } catch (_) { /* 何もしない */ }
+      if (perm !== 'granted') {
+        try { perm = await dir.requestPermission({ mode: 'readwrite' }); } catch (_) { perm = 'denied'; }
+      }
+      if (perm === 'granted' && status === 'paused') setStatus('active');
+      return perm === 'granted';
+    }
+    async function saveToFolder(name, blob) {
+      await writeFile(dir, name, blob);
+    }
+    const folderName = () => (dir ? dir.name : '');
+
+    return { init, changed, flush, writeNow, choose, resume, stop, chooseForRestore, info, supported, ensureFolder, saveToFolder, folderName };
   }
 
   root.KotobaAutoBackup = { create, findLatest, MAIN, KEEP_DAYS, today };

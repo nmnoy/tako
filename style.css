@@ -1381,6 +1381,11 @@ body {
 .restore-hint-btn:hover {
   background: var(--hover);
 }
+.backup-dest {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+}
 .restore-summary {
   margin: 0 0 14px;
   font-size: 14px;
