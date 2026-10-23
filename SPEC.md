@@ -508,6 +508,7 @@ window.KOTOBA_DICTIONARY = {
 - 辞書にない語にカーソルが来てもパネルは前の状態を維持する
 - 選択の検出は予約（setTimeout）してから実行される。実行時に本文からフォーカスが外れていたら何もしない（でないと手で打った検索語が上書きされる）
 - 9万語のキーを持つオブジェクトを引くときは `in` ではなく `hasOwnProperty`（"constructor" などの継承プロパティと取り違えない）
+- 塗りつぶしのボタン（.done-primary / .export-ok）は、`.〇〇-actions button:hover` の背景（--hover）に詳細度で負ける。負けると暗い文字が暗い背景に溶ける（10/24 に完成の画面で発生）。塗りのボタンには必ず専用の :hover を書く（色は `color-mix(in srgb, var(--accent) 80%, var(--text))`）
 
 ## ショートカット
 

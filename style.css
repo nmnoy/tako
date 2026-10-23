@@ -1227,6 +1227,13 @@ body {
   background: var(--accent);
   color: var(--bg);
 }
+/* 塗りつぶしのボタンのマウスオーバー。上の「button:hover」のほうが詳細度が高く（クラス2つ＋要素1つ）、
+   放っておくと背景だけ暗い --hover に変わって、暗い文字（--bg）が背景に溶けて読めなくなっていた（10/24）。
+   色は --accent を文字色側へ少し寄せる。ライトでは少し濃く、ダークでは少し明るくなる */
+.done-actions .done-primary:hover {
+  border-color: color-mix(in srgb, var(--accent) 80%, var(--text));
+  background: color-mix(in srgb, var(--accent) 80%, var(--text));
+}
 .done-note {
   margin: 14px 0 0;
   font-size: 11px;
@@ -1419,6 +1426,14 @@ body {
   border-color: var(--accent);
   background: var(--accent);
   color: var(--bg);
+}
+/* 書き出しのボタンにはマウスオーバーの変化がなかったので、完成の画面と揃える */
+.export-actions button:hover {
+  background: var(--hover);
+}
+.export-actions .export-ok:hover {
+  border-color: color-mix(in srgb, var(--accent) 80%, var(--text));
+  background: color-mix(in srgb, var(--accent) 80%, var(--text));
 }
 .export-actions button:focus-visible {
   outline: 2px solid var(--accent);
