@@ -209,6 +209,7 @@
     out.fontSize = Math.min(Math.max(out.fontSize, FONT_SIZES[0]), FONT_SIZES[FONT_SIZES.length - 1]);
     if (out.font !== 'serif') out.font = 'sans';
     out.vertical = out.vertical === true;
+    if (!['auto', 'light', 'dark'].includes(out.theme)) out.theme = 'auto';
     return out;
   }
 
@@ -714,7 +715,34 @@
   // 表示設定（フォント・縦書き・タイプライター）
   // ===============================================================
 
+  // --- 表示の明るさ（自動 / ライト / ダーク） ---
+  const THEMES = {
+    auto: { mark: '◐', label: '自動（OS に合わせる）' },
+    light: { mark: '☀\uFE0E', label: 'ライト' },   // \uFE0E … 絵文字ではなく文字として描かせる（色付きの太陽にならないように）
+    dark: { mark: '☾', label: 'ダーク' },
+  };
+  const THEME_ORDER = ['auto', 'light', 'dark'];
+  const themeBtn = document.getElementById('themeBtn');
+  const themeMetas = [...document.querySelectorAll('meta[name="theme-color"]')];
+  const themeMetaDefaults = themeMetas.map((m) => m.content);
+
+  function applyTheme() {
+    const t = store.settings.theme || 'auto';
+    if (t === 'auto') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', t);
+    // 次に開いたとき、画面を描く前に当てられるよう localStorage にも控える（index.html の頭のスクリプトが読む）
+    try { localStorage.setItem('tako:theme', t); } catch (_) { /* 何もしない */ }
+    // アプリとして開いたときのタイトルバーの色。自動なら OS に合わせた2つの値に戻す
+    themeMetas.forEach((m, i) => {
+      m.content = t === 'auto' ? themeMetaDefaults[i] : t === 'dark' ? '#161614' : '#f1efea';
+    });
+    themeBtn.textContent = THEMES[t].mark;
+    themeBtn.title = `表示：${THEMES[t].label}（押すと切り替え）`;
+    themeBtn.setAttribute('aria-label', `表示の明るさ：${THEMES[t].label}`);
+  }
+
   function applySettings() {
+    applyTheme();
     const { font, vertical, typewriter, fontSize } = store.settings;
     // 文字サイズは CSS 変数で渡す。1行の幅（--column）もこの変数から計算されるので、一緒に伸び縮みする
     app.style.setProperty('--text-size', fontSize + 'px');
@@ -1211,6 +1239,14 @@
   for (const btn of [sizeDown, sizeUp, sizeLabel]) {
     btn.addEventListener('pointerdown', (ev) => ev.preventDefault());
   }
+  themeBtn.addEventListener('pointerdown', (ev) => ev.preventDefault()); // 押しても本文のフォーカスを奪わない
+  themeBtn.addEventListener('click', () => {
+    const cur = store.settings.theme || 'auto';
+    store.settings.theme = THEME_ORDER[(THEME_ORDER.indexOf(cur) + 1) % THEME_ORDER.length];
+    applyTheme();
+    scheduleSave();
+    showToast(`表示：${THEMES[store.settings.theme].label}`);
+  });
   sizeDown.addEventListener('click', () => stepFontSize(-1));
   sizeUp.addEventListener('click', () => stepFontSize(1));
   sizeLabel.addEventListener('click', resetFontSize);

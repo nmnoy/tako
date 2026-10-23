@@ -29,8 +29,10 @@
   --font-text: var(--font-sans); /* 本文とタイトルのフォント。切替でここだけ差し替える */
 }
 
+/* 暗い表示。設定（右下の ◐☀☾）が「自動」なら OS に合わせ、「ダーク」なら常にこれ、「ライト」なら使わない。
+   同じ値を2か所に書いている（メディアクエリの中と外は1つのルールにまとめられないため）。色を変えるときは両方 */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #1c1c1a;
     --text: #dddad3;
     --muted: #77736b;
@@ -47,7 +49,30 @@
     --paper-sub: #25231c;
     --paper-sub-edge: #3a362a;
     --link: #7eaee0;
+    color-scheme: dark; /* ブラウザの部品（ラジオボタン・スクロールバーなど）も暗い色で描かせる */
   }
+}
+:root[data-theme="dark"] {
+  --bg: #1c1c1a;
+  --text: #dddad3;
+  --muted: #77736b;
+  --line: #2e2d2a;
+  --hover: #282825;
+  --accent: #b5ad9f;
+  --find: rgba(255, 200, 60, 0.20);
+  --find-current: rgba(255, 150, 40, 0.45);
+  --scroll: rgba(255, 255, 255, 0.16);
+  --scroll-hover: rgba(255, 255, 255, 0.30);
+  --desk: #161614;
+  --paper: #20201e;
+  --paper-edge: #2d2c29;
+  --paper-sub: #25231c;
+  --paper-sub-edge: #3a362a;
+  --link: #7eaee0;
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
 }
 
 * {
@@ -82,13 +107,18 @@ body {
   --text: #111111;
   color: var(--text);
 }
+/* ダークモードで真っ白にするとまぶしいので、少し青みのある、くっきりした黒い紙にする（こちらも2か所） */
 @media (prefers-color-scheme: dark) {
-  /* ダークモードで真っ白にするとまぶしいので、少し青みのある、くっきりした黒い紙にする */
-  .app.is-done .sheet {
+  :root:not([data-theme="light"]) .app.is-done .sheet {
     --paper: #15171a;
     --paper-edge: #3a3f46;
     --text: #f4f4f2;
   }
+}
+:root[data-theme="dark"] .app.is-done .sheet {
+  --paper: #15171a;
+  --paper-edge: #3a3f46;
+  --text: #f4f4f2;
 }
 
 .app.font-serif {
@@ -716,6 +746,12 @@ body {
   color: var(--muted);
   font: inherit;
   cursor: pointer;
+}
+/* 表示の明るさの切り替え（◐ 自動 / ☀ ライト / ☾ ダーク）。記号1つだけ */
+.theme-btn {
+  min-width: 2em;
+  font-size: 13px;
+  line-height: 1;
 }
 .status-text-btn:hover,
 .status-text-btn:focus-visible {

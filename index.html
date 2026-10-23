@@ -12,6 +12,14 @@
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <!-- manifest.webmanifest は pwa.js が Web で開いたときだけ足す（file:// だとコンソールが赤くなるので） -->
+  <!-- 表示の明るさ（自動／ライト／ダーク）を、画面を描く前に当てる。設定の本体は IndexedDB にあるが読み込みが非同期で、
+       それを待つとダークにしている人の画面が開くたびに一瞬白く光る。なので localStorage の控えをここで同期で読む -->
+  <script>
+    try {
+      var t = localStorage.getItem('tako:theme');
+      if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+    } catch (e) { /* 読めなければ OS に合わせる */ }
+  </script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -87,6 +95,8 @@
           <button class="seg-btn" type="button" role="radio" data-setting="vertical" data-value="true">縦書き</button>
         </div>
         <button id="exportBtn" class="status-text-btn" type="button" title="テキスト・Word・PDF に書き出す">書き出し</button>
+        <!-- 表示の明るさ。押すたびに 自動 → ライト → ダーク -->
+        <button id="themeBtn" class="status-text-btn theme-btn" type="button"></button>
         <!-- 自動バックアップの書き込み許可が切れているときだけ出る（autobackup.js）。押すと許可を求めて再開 -->
         <button id="autoPaused" class="status-text-btn status-warn" type="button" hidden>自動バックアップ停止中</button>
         <!-- Chrome / Edge で「インストールできる」状態のときだけ出る（pwa.js） -->
