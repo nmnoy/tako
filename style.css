@@ -889,6 +889,12 @@ body {
 }
 
 /* 選んだときの語。押すと元に戻る。破線の枠で「ほかの候補とは役割が違う」ことを見せる */
+.lookup-note {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
 .origin-row {
   padding-bottom: 6px;
 }

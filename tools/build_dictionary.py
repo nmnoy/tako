@@ -238,9 +238,13 @@ def build(use_sudachi: bool) -> dict:
             by_word[w].append(gid)
 
     def group_score(gid: int, head: str) -> tuple:
-        # 手書き → よく使う語が入っている意味 の順。上位3語の順位の平均で比べる
+        # 手書き → よく使う語が入っている意味 の順。上位3語の順位の平均で比べる。
+        # 手書きどうしは「その語を先頭に書いた行」→ 書いた順。頻度で並べると、「拒否感」で
+        # 「抵抗感、…」の行が「拒否感、…」の行より上に来てしまう（10/24）
+        if is_manual[gid]:
+            return (0, 0 if groups[gid][0] == head else 1, gid)
         others = sorted(word_rank(w, rank) for w in groups[gid] if w != head)[:3]
-        return (0 if is_manual[gid] else 1, sum(others) / max(1, len(others)))
+        return (1, 0, sum(others) / max(1, len(others)))
 
     index: dict[str, list[int]] = {}
     for head, gids in by_word.items():

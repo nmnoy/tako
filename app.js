@@ -894,7 +894,11 @@
     for (let len = Math.min(word.length - 1, maxKeyLength); len >= 2; len--) {
       const head = word.slice(0, len);
       if (hasWord(head)) {
-        return { start: s, end: s + len, text: head, key: head, mode: 'exact' };
+        // 残りが助詞（ひらがな）なら「今日は」の助詞を外しただけ。漢字・カタカナなら「拒否感」のような複合語で、
+        // 辞書に丸ごとは無かったということ。パネルに一言出す（黙って「拒否」で探すと、何を調べたのか分からなくなる）
+        const rest = word.slice(len);
+        const partial = /^[\p{sc=Han}\p{sc=Katakana}ー]/u.test(rest) ? word : null;
+        return { start: s, end: s + len, text: head, key: head, mode: 'exact', partial };
       }
     }
 
@@ -1036,6 +1040,14 @@
         title: isCurrent ? '選んだときの語（今これが入っている）' : `元に戻す（${origin.text}）`,
       }));
       results.appendChild(row);
+    }
+
+    // 「拒否感」が辞書になく「拒否」で探したとき。候補を選ぶと「拒否」の部分だけ入れ替わる（拒絶 → 拒絶感）
+    if (live && live.partial && origin && origin.key === q) {
+      const note = document.createElement('p');
+      note.className = 'lookup-note';
+      note.textContent = `「${live.partial}」は辞書にないため、「${q}」の類語を表示しています。選ぶと「${q}」の部分だけ入れ替わります。`;
+      results.appendChild(note);
     }
 
     const groups = synonymsOf(q);
