@@ -87,25 +87,25 @@
   // 多少おかしなところ（型の違い・親が見つからない資料）は直して読む。読めないものだけ断る。
   // バックアップから戻すのは「困っているとき」なので、細かい不備で全部を断るより、救えるものを救う
   function parse(text, makeId, { inZip = false } = {}) {
-    if (typeof text !== 'string' || text.length === 0) return { ok: false, error: 'ファイルが空っぽ。' };
-    if (text.length > MAX_JSON) return { ok: false, error: 'ファイルが大きすぎる（100MB まで）。' };
+    if (typeof text !== 'string' || text.length === 0) return { ok: false, error: 'ファイルが空です。' };
+    if (text.length > MAX_JSON) return { ok: false, error: 'ファイルが大きすぎます（100MB まで）。' };
 
     let raw;
     try {
       raw = JSON.parse(text.charCodeAt(0) === 0xfeff ? text.slice(1) : text); // BOM 付きで保存し直された場合
     } catch (_) {
-      return { ok: false, error: 'JSON として読めなかった。タコエディタのバックアップファイルを選んでね。' };
+      return { ok: false, error: 'JSON として読めませんでした。タコエディタのバックアップファイルを選んでください。' };
     }
     if (!raw || typeof raw !== 'object' || raw.app !== APP || raw.kind !== KIND) {
-      return { ok: false, error: 'タコエディタのバックアップファイルではないみたい。' };
+      return { ok: false, error: 'タコエディタのバックアップファイルではないようです。' };
     }
     if (typeof raw.version !== 'number' || raw.version > VERSION) {
-      return { ok: false, error: 'もっと新しいタコエディタで作られたバックアップなので、この版では読めない。タコエディタを更新してから試してね。' };
+      return { ok: false, error: 'もっと新しいタコエディタで作られたバックアップなので、この版では読めません。タコエディタを更新してから試してください。' };
     }
     if (raw.version >= 2 && !inZip) {
-      return { ok: false, error: '画像つきのバックアップは .zip のまま選んでね（展開した中の backup.json だけでは画像が戻せない）。' };
+      return { ok: false, error: '画像つきのバックアップは .zip のまま選んでください（展開した中の backup.json だけでは画像を戻せません）。' };
     }
-    if (!Array.isArray(raw.memos)) return { ok: false, error: '原稿の一覧が見つからなかった。' };
+    if (!Array.isArray(raw.memos)) return { ok: false, error: '原稿の一覧が見つかりませんでした。' };
 
     const str = (v) => (typeof v === 'string' ? v : v == null ? '' : String(v));
     const seen = new Set();
@@ -140,7 +140,7 @@
       if (m.parentId && !mainIds.has(m.parentId)) m.parentId = null;
     }
 
-    if (memos.length === 0) return { ok: false, error: 'バックアップの中に原稿が1つもない。' };
+    if (memos.length === 0) return { ok: false, error: 'バックアップの中に原稿が1つもありません。' };
 
     // 画像の情報（中身は zip から parseFile が後で付ける）。原稿が見つからない画像は捨てる
     const images = [];
@@ -233,15 +233,15 @@
 
   // ファイル（.json / .zip）を読む。zip なら画像の中身（Blob）も付ける
   async function parseFile(file, makeId) {
-    if (file.size > MAX_ZIP) return { ok: false, error: 'ファイルが大きすぎる（1GB まで）。' };
+    if (file.size > MAX_ZIP) return { ok: false, error: 'ファイルが大きすぎます（1GB まで）。' };
     let u8;
     try {
       u8 = new Uint8Array(await file.arrayBuffer());
     } catch (_) {
-      return { ok: false, error: 'ファイルを読めなかった。' };
+      return { ok: false, error: 'ファイルを読めませんでした。' };
     }
     if (!isZip(u8)) {
-      if (u8.length > MAX_JSON) return { ok: false, error: 'ファイルが大きすぎる（100MB まで）。' };
+      if (u8.length > MAX_JSON) return { ok: false, error: 'ファイルが大きすぎます（100MB まで）。' };
       return parse(new TextDecoder().decode(u8), makeId);
     }
 
@@ -249,11 +249,11 @@
     try {
       entries = await unzip(u8);
     } catch (_) {
-      return { ok: false, error: 'zip を開けなかった（壊れているかも）。' };
+      return { ok: false, error: 'zip を開けませんでした（壊れている可能性があります）。' };
     }
     // 展開して zip し直すと「フォルダ名/backup.json」になることがあるので、末尾で探す
     const jsonName = [...entries.keys()].find((k) => k === JSON_NAME || k.endsWith('/' + JSON_NAME));
-    if (!jsonName) return { ok: false, error: 'zip の中に backup.json が見つからなかった。タコエディタのバックアップを選んでね。' };
+    if (!jsonName) return { ok: false, error: 'zip の中に backup.json が見つかりませんでした。タコエディタのバックアップを選んでください。' };
     const prefix = jsonName.slice(0, -JSON_NAME.length);
     const result = parse(new TextDecoder().decode(entries.get(jsonName)), makeId, { inZip: true });
     if (!result.ok) return result;
@@ -530,12 +530,12 @@
 
     function showLast() {
       const t = getLastBackupAt();
-      lastEl.textContent = t ? `前回：${ago(t)}` : 'まだ一度も保存していない';
+      lastEl.textContent = t ? `前回：${ago(t)}` : 'まだ一度も保存していません';
       lastEl.classList.toggle('stale', !t || Date.now() - t > STALE_DAYS * 86400000);
       // 保存先をはっきり書く。手動と自動で置き場所が違うと、消えたときに探せない
       destEl.textContent = folder && folder.name()
         ? `保存先：「${folder.name()}」フォルダ（自動バックアップと同じ場所）`
-        : '保存先：ダウンロードフォルダ（下の自動バックアップでフォルダを選ぶと、手動の保存もそこに入る）';
+        : '保存先：ダウンロードフォルダ（下の自動バックアップでフォルダを選ぶと、手動の保存もそこに入ります）';
     }
 
     // バックアップの中身を作る（手動の「バックアップを保存」と、自動バックアップ（autobackup.js）で共通）。
@@ -585,9 +585,9 @@
     }
 
     const NOTES = {
-      merge: ['追加する', '今ある原稿はそのまま残して、バックアップの原稿を一覧に足す。まったく同じ原稿がすでにあれば飛ばす。'],
-      update: ['更新する', '別の端末で書いた続きを取り込む用。原稿ごとに新しい方を残す。両方の端末で書き換えていた原稿は、どちらも消さずに「（別の端末の版）」を足す。別の端末で消した原稿は、こちらでも消す（消したあとにこちらで書き換えていたら残す）。'],
-      replace: ['入れ替える', '今の原稿はすべて消えて、バックアップの中身に入れ替わる。念のため、入れ替える前の状態を「…_入れ替え前」としてバックアップの保存先に残しておく。'],
+      merge: ['追加する', '今ある原稿はそのまま残して、バックアップの原稿を一覧に足します。まったく同じ原稿がすでにあれば飛ばします。'],
+      update: ['更新する', '別の端末で書いた続きを取り込むときに使います。原稿ごとに新しい方を残します。両方の端末で書き換えていた原稿は、どちらも消さずに「（別の端末の版）」を足します。別の端末で消した原稿は、こちらでも消します（消したあとにこちらで書き換えていたら残します）。'],
+      replace: ['入れ替える', '今の原稿はすべて消えて、バックアップの中身に入れ替わります。念のため、入れ替える前の状態を「…_入れ替え前」としてバックアップの保存先に残しておきます。'],
     };
     function syncNote() {
       const [label, text] = NOTES[form.elements.mode.value] || NOTES.merge;
@@ -605,7 +605,7 @@
       const { mains, refs, images } = result.counts;
       const when = result.data.exportedAt ? `（${formatDate(result.data.exportedAt)} に保存）` : '';
       summary.textContent = `作品 ${mains}・資料 ${refs}${images ? `・画像 ${images}` : ''}${when}`;
-      if (result.missingImages) summary.textContent += `　※ 画像 ${result.missingImages} 枚は zip の中に見つからなかった`;
+      if (result.missingImages) summary.textContent += `　※ 画像 ${result.missingImages} 枚は zip の中に見つかりませんでした`;
       // 前回選んだ戻し方から始める。ただし「入れ替える」は毎回選び直してもらう（取り消せないので）
       const last = getMode && getMode();
       form.elements.mode.value = last === 'update' ? 'update' : 'merge';
@@ -625,8 +625,8 @@
         return -records.length;
       }
     }
-    const imageNote = (n) => (n > 0 ? `画像 ${n} 枚も戻した。` : n < 0 ? `画像 ${-n} 枚は保存できなかった（容量不足かも）。` : '');
-    const FAIL = '保存できなかったので、元のままにした（ブラウザの保存容量がいっぱい）。';
+    const imageNote = (n) => (n > 0 ? `画像 ${n} 枚も戻しました。` : n < 0 ? `画像 ${-n} 枚は保存できませんでした（容量不足の可能性があります）。` : '');
+    const FAIL = '保存できなかったので、元のままにしました（ブラウザの保存容量がいっぱいです）。';
 
     async function apply(mode) {
       const data = pending;
@@ -646,7 +646,7 @@
           n = await putImages(data.images.map((im) => ({ ...im })));
         }
         onImagesChanged();
-        notify(`バックアップの中身に入れ替えた。前の状態は${before.where}に保存してある。` + imageNote(n));
+        notify(`バックアップの中身に入れ替えました。前の状態は${before.where}に保存してあります。` + imageNote(n));
         return;
       }
 
@@ -664,14 +664,14 @@
         if (ok && r.removed.length && storage && storage.hasImages) await storage.deleteImagesOf(r.removed).catch(() => {});
         const n = await putImages(newImages);
         if (n || r.removed.length) onImagesChanged();
-        if (!changed && !n && !r.keptDeleted) { notify('こちらの方が新しいか同じだったので、何も変えていない。'); return; }
+        if (!changed && !n && !r.keptDeleted) { notify('こちらの方が新しいか同じだったので、何も変えていません。'); return; }
         const parts = [];
-        if (r.updated) parts.push(`${r.updated} 件を新しい版にした`);
-        if (r.added) parts.push(`${r.added} 件を足した`);
-        if (r.removed.length) parts.push(`${r.removed.length} 件を消した（別の端末で消されていたので）`);
-        if (r.keptDeleted) parts.push(`${r.keptDeleted} 件は別の端末で消されていたけど、こちらで書き換えていたので残した`);
-        if (r.conflicts) parts.push(`${r.conflicts} 件は両方の端末で書き換えていたので、「（別の端末の版）」として両方残した`);
-        notify((parts.join('、') || '原稿は変わっていない') + '。' + imageNote(n));
+        if (r.updated) parts.push(`${r.updated} 件を新しい版にしました。`);
+        if (r.added) parts.push(`${r.added} 件を足しました。`);
+        if (r.removed.length) parts.push(`${r.removed.length} 件を消しました（別の端末で消されていたため）。`);
+        if (r.keptDeleted) parts.push(`${r.keptDeleted} 件は別の端末で消されていましたが、こちらで書き換えていたので残しました。`);
+        if (r.conflicts) parts.push(`${r.conflicts} 件は両方の端末で書き換えていたので、「（別の端末の版）」として両方残しました。`);
+        notify((parts.join('') || '原稿は変わっていません。') + imageNote(n));
         return;
       }
 
@@ -679,12 +679,12 @@
       const d = data.exportedAt ? new Date(data.exportedAt) : null;
       const r = merge(current, data.memos, makeId, d ? `（${d.getMonth() + 1}/${d.getDate()} のバックアップ）` : '（バックアップ）', getStore().deleted || []);
       const newImages = mergeImages(existingImages, data.images, r.idMap, makeId);
-      if (r.added === 0 && newImages.length === 0) { notify('全部すでにある原稿だったので、何も足していない。'); return; }
+      if (r.added === 0 && newImages.length === 0) { notify('全部すでにある原稿だったので、何も足していません。'); return; }
       if (r.added && !(await mergeWith(r))) { notify(FAIL); return; }
       const n = await putImages(newImages);
       if (n) onImagesChanged();
-      const head = r.added === 0 ? '原稿は全部すでにあった。'
-        : r.skipped ? `${r.added} 件を足した（同じものが ${r.skipped} 件あったので飛ばした）。` : `${r.added} 件を足した。`;
+      const head = r.added === 0 ? '原稿は全部すでにありました。'
+        : r.skipped ? `${r.added} 件を足しました（同じものが ${r.skipped} 件あったので飛ばしました）。` : `${r.added} 件を足しました。`;
       notify(head + imageNote(n));
     }
 
@@ -696,7 +696,7 @@
     document.getElementById('exportBtn').addEventListener('click', () => setTimeout(showLast));
 
     saveBtn.addEventListener('click', () => {
-      save().then(({ name, where }) => notify(`${where}に保存した${name.endsWith('.zip') ? '（画像があるので zip）' : ''}。`));
+      save().then(({ name, where }) => notify(`${where}に保存しました${name.endsWith('.zip') ? '（画像があるので zip）' : ''}。`));
     });
     loadBtn.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', () => {
@@ -738,7 +738,7 @@
         const files = Array.from(e.dataTransfer.files);
         const file = files[0];
         if (file && /\.(json|zip)$/i.test(file.name)) openFile(file);
-        else if (!(onDropFiles && onDropFiles(files))) notify('ここに落とせるのは、タコエディタのバックアップか、資料に貼る画像だけ。');
+        else if (!(onDropFiles && onDropFiles(files))) notify('ここにドロップできるのは、タコエディタのバックアップか、資料に貼る画像だけです。');
         return;
       }
       if (!hasWeb(e)) return;

@@ -111,7 +111,7 @@
     // ------------------------------------------------------------
     // 画像
     // ------------------------------------------------------------
-    const noImages = () => Promise.reject(new Error('この環境では画像を保存できない（IndexedDB が使えない）'));
+    const noImages = () => Promise.reject(new Error('この環境では画像を保存できません（IndexedDB が使えません）'));
 
     async function imagesOf(memoId) {
       if (!db) return [];

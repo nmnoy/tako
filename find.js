@@ -186,10 +186,10 @@
       const q = input.value;
       let note = '';
       if (options.conj && q && !lex.isVerb(q) && !lex.isAdjective(q)) {
-        note = '「活用」は動詞・形容詞の辞書形で検索したときに効く（例：佇む、暑い）';
+        note = '「活用」は動詞・形容詞の辞書形で検索したときに効きます（例：佇む、暑い）';
       } else if (options.conj && !replaceRow.hidden && replaceInput.value && lex.isVerb(q) &&
                  !lex.isVerb(replaceInput.value) && !replaceInput.value.endsWith('する')) {
-        note = '置換語が動詞じゃないので、活用形の一致は活用語尾ごと置き換わる';
+        note = '置換語が動詞ではないので、活用形の一致は活用語尾ごと置き換わります';
       }
       noteEl.textContent = note;
     }
@@ -328,7 +328,7 @@
 
       current = -1;
       run(0);
-      updateNote(`${list.length}件置換した（本文で Ctrl+Z を押すと全部戻る）`);
+      updateNote(`${list.length}件置換しました（本文で Ctrl+Z を押すと全部戻ります）`);
     }
 
     // ------------------------------------------------------------

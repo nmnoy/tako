@@ -260,7 +260,7 @@
     }, () => {
       if (Date.now() - lastSaveWarn > 60000) {
         lastSaveWarn = Date.now();
-        showToast('保存できなかった（ブラウザの保存容量がいっぱい）。書き出し → バックアップを保存してね');
+        showToast('保存できませんでした（ブラウザの保存容量がいっぱいです）。「書き出し」→「バックアップを保存」で保存してください。');
       }
       return false;
     });
@@ -365,8 +365,8 @@
     if (memo.completed && !memo.parentId) {
       const badge = document.createElement('span');
       badge.className = 'memo-done';
-      badge.textContent = '完成';
-      badge.title = `${new Date(memo.completed.at).toLocaleDateString()} に完成`;
+      badge.textContent = '脱稿';
+      badge.title = `${new Date(memo.completed.at).toLocaleDateString()} に脱稿`;
       item.appendChild(badge);
     }
 
@@ -422,7 +422,7 @@
           {
             className: 'done-act',
             text: '✓',
-            title: m.completed ? '完成した作品（確認・完成時の版に戻す・取り消し）' : '完成にする（書き上げたら押す）',
+            title: m.completed ? '脱稿した作品（確認・脱稿時の状態に戻す・取り消し）' : '脱稿する（書き上げたら押す）',
             onClick: () => done.toggle(m.id),
           },
           { text: '×', title: 'この原稿を削除', onClick: () => deleteMemo(m.id) },
@@ -584,8 +584,8 @@
 
     // 空のメモ（資料も全部空）は確認なしで消す。中身があるときだけ確認
     if (!isEmpty(memo) || subs.some((s) => !isEmpty(s))) {
-      const extra = subs.length ? `\n付いている資料${subs.length}件も一緒に削除される。` : '';
-      if (!confirm(`「${memoLabel(memo)}」を削除する？${extra}`)) return;
+      const extra = subs.length ? `\n付いている資料${subs.length}件も一緒に削除されます。` : '';
+      if (!confirm(`「${memoLabel(memo)}」を削除しますか？${extra}`)) return;
     }
 
     // 消す前に、開いているメモが巻き添えになるか判定しておく
@@ -1063,7 +1063,7 @@
     if (!shown) {
       const p = document.createElement('p');
       p.className = 'empty';
-      p.textContent = groups ? 'この形に活用できる候補がない' : '見つからなかった';
+      p.textContent = groups ? 'この形に活用できる候補がありません' : '見つかりませんでした';
       results.appendChild(p);
     }
   }
@@ -1313,7 +1313,7 @@
     if (mod && !e.shiftKey && !e.altKey && e.code === 'KeyS') {
       e.preventDefault();
       saveNow();
-      showToast('自動で保存されてるよ。ファイルにするなら右下の「書き出し」から');
+      showToast('自動で保存されています。ファイルにするなら右下の「書き出し」から。');
       return;
     }
 
@@ -1512,30 +1512,30 @@
   function renderAuto({ status, folder, lastAt, errorText, supported }) {
     const ago = lastAt ? window.KotobaBackup.ago(lastAt) : '';
     const text = {
-      unsupported: 'このブラウザでは使えない',
+      unsupported: 'このブラウザでは使えません',
       off: 'オフ',
       active: `オン（${folder}）`,
       paused: '停止中',
-      error: '止まっている',
+      error: '止まっています',
     }[status];
     autoEls.status.textContent = text;
     autoEls.status.className = 'auto-status' + (status === 'active' ? ' on' : status === 'paused' || status === 'error' ? ' warn' : '');
     autoEls.note.textContent = {
-      unsupported: 'パソコンの Chrome / Edge で使える。このブラウザでは、ときどき上の「バックアップを保存」を押してね。',
+      unsupported: 'パソコンの Chrome / Edge で使えます。このブラウザでは、ときどき上の「バックアップを保存」を押してください。',
       // デスクトップ・ホームなど「大事な場所そのもの」は Chrome が選ばせてくれない（「このフォルダを開けません」）。
       // 中に作ったフォルダなら選べるので、選ぶ前に一言そう伝える
-      off: '選んだフォルダに、書いている途中で自動的にバックアップを書き出す。ブラウザのデータが消えても、そのファイルをドロップすれば戻せる。オンにしておくのがおすすめ。フォルダを選ぶときは、デスクトップや「書類」そのものではなく、その中に「タコエディタのバックアップ」などのフォルダを作って選んでね（選ぶ画面の「新規フォルダ」で作れる）。',
+      off: '選んだフォルダに、書いている途中で自動的にバックアップを書き出します。ブラウザのデータが消えても、そのファイルをドロップすれば戻せます。オンにしておくのがおすすめです。フォルダを選ぶときは、デスクトップや「書類」そのものではなく、その中に「タコエディタのバックアップ」などのフォルダを作って選んでください（選ぶ画面の「新規フォルダ」で作れます）。',
       // フォルダの場所（パス）はブラウザが教えてくれない（ユーザー名やフォルダ構成が分かってしまうため）。名前で探してもらう
-      active: `数分おきに「${folder}」に書き出している（1日ごとの控えも14日分）。上の「バックアップを保存」も同じフォルダに入る。${ago ? `最後の書き出し：${ago}。` : ''}フォルダの場所（パス）はブラウザの仕組みで表示できないので、見失ったらフォルダ名で検索してね。`,
-      paused: `「${folder}」への書き込みの許可が切れている（ブラウザを開き直すと切れることがある）。「再開する」を押して許可してね。`,
-      error: `${errorText}。フォルダを選び直してね。`,
+      active: `数分おきに「${folder}」に書き出しています（1日ごとの控えも14日分）。上の「バックアップを保存」も同じフォルダに入ります。${ago ? `最後の書き出し：${ago}。` : ''}フォルダの場所（パス）はブラウザの仕組みで表示できないので、見失ったらフォルダ名で検索してください。`,
+      paused: `「${folder}」への書き込みの許可が切れています（ブラウザを開き直すと切れることがあります）。「再開する」を押して許可してください。`,
+      error: `${errorText}。フォルダを選び直してください。`,
     }[status];
     autoEls.setup.hidden = status === 'unsupported';
     autoEls.setup.textContent = status === 'paused' ? '再開する' : status === 'active' || status === 'error' ? 'フォルダを変える' : 'フォルダを選んで始める';
     autoEls.stop.hidden = !(status === 'active' || status === 'paused' || status === 'error');
     // 右下の「停止中」は、許可切れ・エラーのときだけ（普段は何も出さない）
     autoEls.paused.hidden = !(status === 'paused' || status === 'error');
-    autoEls.paused.textContent = status === 'error' ? '自動バックアップが止まっている' : '自動バックアップ停止中';
+    autoEls.paused.textContent = status === 'error' ? '自動バックアップが止まっています' : '自動バックアップ停止中';
     document.getElementById('restoreFromFolder').hidden = !supported;
     if (backupUi) backupUi.refresh(); // 手動バックアップの「保存先」の表示も合わせる
   }
@@ -1549,15 +1549,15 @@
   });
   // どれもクリックの中で呼ぶ（フォルダ選択・許可のダイアログはクリックがないと出せない）
   autoEls.setup.addEventListener('click', () => (autobackup.info().status === 'paused' ? autobackup.resume() : autobackup.choose()));
-  autoEls.stop.addEventListener('click', () => { autobackup.stop(); showToast('自動バックアップを止めた。'); });
+  autoEls.stop.addEventListener('click', () => { autobackup.stop(); showToast('自動バックアップを止めました。'); });
   autoEls.paused.addEventListener('click', () => {
     if (autobackup.info().status === 'error') { autobackup.choose(); return; }
-    autobackup.resume().then((ok) => { if (ok) showToast('自動バックアップを再開した。'); });
+    autobackup.resume().then((ok) => { if (ok) showToast('自動バックアップを再開しました。'); });
   });
   document.getElementById('restoreFromFolder').addEventListener('click', async () => {
     const file = await autobackup.chooseForRestore();
     if (file === undefined) return; // キャンセル
-    if (!file) { showToast('このフォルダにはタコエディタのバックアップが見つからなかった。'); return; }
+    if (!file) { showToast('このフォルダにはタコエディタのバックアップが見つかりませんでした。'); return; }
     backupUi.openFile(file);
   });
   autobackup.init();
@@ -1588,7 +1588,7 @@
   window.KotobaPWA.create({
     installButton: document.getElementById('installBtn'),
     // 新しい版が届いた。勝手に読み直すと書いている最中の人が困るので、押してもらう
-    onUpdateReady: (apply) => showToast('新しい版があります', { label: '更新', run: apply }),
+    onUpdateReady: (apply) => showToast('タコエディタの新しいバージョンがあります（更新しても原稿は消えません）', { label: '更新', run: apply }),
     beforeReload: saveNow,
   });
   applySettings();

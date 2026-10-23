@@ -56,21 +56,21 @@
       const chars = countChars(memo.body);
       body.textContent = '';
       body.append(
-        el('h2', { class: 'done-title small', text: `『${label(memo)}』を完成にする？` }),
+        el('h2', { class: 'done-title small', text: `『${label(memo)}』を脱稿しますか？` }),
         el('p', { class: 'done-stats', text: `いまの文字数：${chars.toLocaleString()}字` }),
       );
       if (chars === 0) {
         // 空っぽの作品は完成にできない（✓ の押し間違いで一番ありがちなケース）
         body.append(
-          el('p', { class: 'done-note', text: 'まだ本文に何も書いていない。書き上げたら、もう一度 ✓ を押してね。' }),
+          el('p', { class: 'done-note', text: 'まだ本文に何も書いていません。書き上げたら、もう一度 ✓ を押してください。' }),
           el('div', { class: 'done-actions' }, button('閉じる', close, 'done-primary')),
         );
       } else {
         body.append(
-          el('p', { class: 'done-note', text: '今の原稿を「完成時の版」として残す。完成にしたあとも書き直せるし、一覧の ✓ からいつでも取り消せる。' }),
+          el('p', { class: 'done-note', text: '今の原稿を脱稿時の状態として残します。脱稿したあとも書き直せますし、一覧の ✓ からいつでも取り消せます。' }),
           el('div', { class: 'done-actions' },
             button('キャンセル', close),
-            button('完成にする', () => complete(memo), 'done-primary')),
+            button('脱稿する', () => complete(memo), 'done-primary')),
         );
       }
       if (!dialog.open) dialog.showModal();
@@ -92,13 +92,13 @@
       body.textContent = '';
       body.append(
         el('img', { class: 'done-tako', src: 'icons/icon.svg', alt: '', width: '64', height: '64' }),
-        el('h2', { class: 'done-title', text: '書き上げた！' }),
+        el('h2', { class: 'done-title', text: '脱稿！' }),
         el('p', { class: 'done-work', text: `『${label(memo)}』` }),
         el('p', { class: 'done-stats', text: `${c.chars.toLocaleString()}字${days ? `（書き始めてから${days}日）` : ''}` }),
         el('div', { class: 'done-actions' },
           button('書き出す…', () => { close(); openExport(); }),
           button('閉じる', close, 'done-primary')),
-        el('p', { class: 'done-note', text: '完成した時点の原稿を残しておいた。このあと推敲して書き換えても、一覧の ✓ から「完成時の版」に戻せる。' }),
+        el('p', { class: 'done-note', text: 'このあと推敲して書き換えても、一覧の ✓ から脱稿時の状態に戻せます。' }),
       );
 
       // 応援のお願い（おまけ）。出す条件はファイル冒頭のとおり
@@ -107,7 +107,7 @@
         memo.cheered = true;
         commit();
         const line = el('p', { class: 'done-cheer' },
-          'タコエディタが役に立ったら、応援してもらえるとうれしい。',
+          'タコエディタが役に立ったら、応援してもらえるとうれしいです。',
           el('a', {
             href: url, text: '応援する', rel: 'noopener noreferrer', target: '_blank',
             onclick: (e) => { e.preventDefault(); root.KotobaPlatform.openExternal(url); },
@@ -131,11 +131,11 @@
       body.textContent = '';
       body.append(
         el('h2', { class: 'done-title small', text: `『${label(memo)}』` }),
-        el('p', { class: 'done-stats', text: `${fmtDate(c.at)} に完成（${c.chars.toLocaleString()}字）` }),
-        el('p', { class: 'done-note', text: changed ? '完成のあとに書き換えている。' : '完成のあとは書き換えていない。' }),
+        el('p', { class: 'done-stats', text: `${fmtDate(c.at)} に脱稿（${c.chars.toLocaleString()}字）` }),
+        el('p', { class: 'done-note', text: changed ? '脱稿のあとに書き換えています。' : '脱稿のあとは書き換えていません。' }),
         el('div', { class: 'done-actions' },
-          changed ? button('完成時の版に戻す', () => revert(memo)) : null,
-          button('完成を取り消す', () => { delete memo.completed; commit(); close(); notify('完成を取り消した。'); }),
+          changed ? button('脱稿時の状態に戻す', () => revert(memo)) : null,
+          button('脱稿を取り消す', () => { delete memo.completed; commit(); close(); notify('脱稿を取り消しました。'); }),
           button('閉じる', close, 'done-primary')),
       );
       if (!dialog.open) dialog.showModal();
@@ -149,7 +149,7 @@
       memo.updatedAt = Date.now();
       commit({ reopen: true });
       close();
-      notify('完成時の版に戻した。', {
+      notify('脱稿時の状態に戻しました。', {
         label: '元に戻す',
         run: () => { memo.title = before.title; memo.body = before.body; memo.updatedAt = Date.now(); commit({ reopen: true }); },
       });

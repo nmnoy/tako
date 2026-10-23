@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>タコエディタ</title>
+  <title>tako_editor</title>
   <meta name="description" content="類語を引きながら書ける、縦書き対応の原稿エディタ">
   <!-- アプリとして開いたときのタイトルバーの色。紙の外（机）の色に合わせる -->
   <meta name="theme-color" content="#f1efea" media="(prefers-color-scheme: light)">
@@ -67,7 +67,7 @@
           placeholder="文章を書く……"></textarea>
         <!-- 原稿が空っぽで開いたときだけ出る「戻し方」の案内。書き始めたら消える -->
         <div id="restoreHint" class="restore-hint" hidden>
-          <p>原稿が消えてしまったときは、バックアップのファイル（.json / .zip）をここにドロップすると戻せる。</p>
+          <p>原稿が消えてしまったときは、バックアップのファイル（.json / .zip）をここにドロップすると戻せます。</p>
           <button id="restoreFromFolder" type="button" class="restore-hint-btn">バックアップのフォルダを選ぶ</button>
         </div>
       </div>
@@ -78,7 +78,7 @@
         <div class="attach-inner">
           <div id="attachList" class="attach-list" aria-label="資料の画像"></div>
           <button id="attachAdd" class="attach-add" type="button" title="画像を選んで追加">＋ 画像</button>
-          <span class="attach-hint">貼り付け・ドロップでも追加できる</span>
+          <span class="attach-hint">貼り付け・ドロップでも追加できます</span>
         </div>
         <input type="file" id="attachFile" accept="image/*" multiple hidden>
       </div>
@@ -119,7 +119,7 @@
           id="search"
           class="search"
           type="search"
-          placeholder="言葉を調べる"
+          placeholder="類語を検索"
           autocomplete="off">
         <div id="results" class="results"></div>
       </section>
@@ -172,7 +172,7 @@
           <h3 id="backupHeading" class="backup-heading">バックアップ</h3>
           <span id="backupLast" class="backup-last"></span>
         </div>
-        <p class="backup-desc">すべての作品と資料を1つのファイルに保存する。ブラウザのデータが消えても、このファイルから戻せる。</p>
+        <p class="backup-desc">すべての作品と資料を1つのファイルに保存します。ブラウザのデータが消えても、このファイルから戻せます。</p>
         <div class="backup-actions">
           <button type="button" id="backupSave">バックアップを保存</button>
           <button type="button" id="backupLoad">バックアップから戻す…</button>
@@ -196,7 +196,7 @@
   </dialog>
 
   <!-- 完成（done.js）。中身は開くたびに作る -->
-  <dialog id="doneDialog" class="export-dialog done-dialog" aria-label="完成">
+  <dialog id="doneDialog" class="export-dialog done-dialog" aria-label="脱稿">
     <div class="done-body"></div>
   </dialog>
 

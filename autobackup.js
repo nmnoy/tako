@@ -120,9 +120,9 @@
           return true;
         } catch (e) {
           if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) setStatus('paused');
-          else if (e && e.name === 'NotFoundError') setStatus('error', 'フォルダが見つからない（移動か削除された？）');
-          else if (e && e.name === 'QuotaExceededError') setStatus('error', 'ディスクの空きが足りない');
-          else setStatus('error', '書き出せなかった');
+          else if (e && e.name === 'NotFoundError') setStatus('error', 'フォルダが見つかりません（移動か削除された可能性があります）');
+          else if (e && e.name === 'QuotaExceededError') setStatus('error', 'ディスクの空きが足りません');
+          else setStatus('error', '書き出せませんでした');
           dirty = true;
           return false;
         } finally {
@@ -187,7 +187,7 @@
       dailyDone = '';
       setStatus('active');
       const wrote = await writeNow();
-      notify(wrote ? `自動バックアップを始めた（${dir.name} に保存）。` : `自動バックアップを始めた（${dir.name}）。原稿を書くと保存される。`);
+      notify(wrote ? `自動バックアップを始めました（${dir.name} に保存）。` : `自動バックアップを始めました（${dir.name}）。原稿を書くと保存されます。`);
       return true;
     }
 

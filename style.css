@@ -14,7 +14,8 @@
   --paper-edge: #e3e0d8;                 /* 紙のふち */
   --paper-sub: #fbf5e4;                  /* 資料用の紙（少し黄みがかった、カードや付箋の色） */
   --paper-sub-edge: #e5d9b8;
-  --done: #c8553d;                       /* 完成の印（紙の上端の帯・一覧の「完成」）。朱色 */
+  --done: #c8553d;
+  --danger: #c0392b;                     /* 注意書きの赤字（このアプリについて の注意事項） */                       /* 完成の印（紙の上端の帯・一覧の「完成」）。朱色 */
   --link: #3f78b5;                       /* 資料の中の URL の下線 */
   --text-size: 17px;                     /* 本文の文字サイズ。JS が .app に設定で上書きする */
   /* 紙の幅と1行の幅。文字サイズを変えても紙は動かず、1行の字数が変わるだけにする
@@ -50,6 +51,7 @@
     --paper-sub: #25231c;
     --paper-sub-edge: #3a362a;
     --done: #d9785f;
+    --danger: #e8786a;
     --link: #7eaee0;
     color-scheme: dark; /* ブラウザの部品（ラジオボタン・スクロールバーなど）も暗い色で描かせる */
   }
@@ -71,6 +73,7 @@
   --paper-sub: #25231c;
   --paper-sub-edge: #3a362a;
   --done: #d9785f;
+  --danger: #e8786a;
   --link: #7eaee0;
   color-scheme: dark;
 }
@@ -1316,6 +1319,10 @@ body {
 }
 .about-muted {
   color: var(--muted);
+}
+/* 注意事項（原稿が消える条件）は赤字 */
+.about-warn {
+  color: var(--danger);
 }
 .about-section a {
   color: var(--link);

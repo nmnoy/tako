@@ -32,7 +32,7 @@
       const url = URL.createObjectURL(file);
       const img = new Image();
       img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
-      img.onerror = () => { URL.revokeObjectURL(url); reject(new ImageError('この形式の画像は読めなかった（iPhone の HEIC など）。JPEG か PNG にしてから試してね。')); };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new ImageError('この形式の画像は読めませんでした（iPhone の HEIC など）。JPEG か PNG にしてから試してください。')); };
       img.src = url;
     });
   }
@@ -41,8 +41,8 @@
 
   // 戻り値: { blob, type, width, height }
   async function prepare(file) {
-    if (!file || !/^image\//.test(file.type)) throw new ImageError('画像ファイルではないみたい。');
-    if (file.size > MAX_INPUT_BYTES) throw new ImageError('画像が大きすぎる（50MB まで）。');
+    if (!file || !/^image\//.test(file.type)) throw new ImageError('画像ファイルではないようです。');
+    if (file.size > MAX_INPUT_BYTES) throw new ImageError('画像が大きすぎます（50MB まで）。');
 
     const img = await loadImage(file);
     const w = img.naturalWidth || 800; // SVG は大きさを持たないことがある
@@ -73,7 +73,7 @@
     ctx.fillRect(0, 0, cw, ch);
     ctx.drawImage(img, 0, 0, cw, ch);
     const jpeg = await toBlob(canvas, 'image/jpeg', 0.85);
-    if (!jpeg) throw new ImageError('画像を縮小できなかった。');
+    if (!jpeg) throw new ImageError('画像を縮小できませんでした。');
     return { blob: jpeg, type: 'image/jpeg', width: cw, height: ch };
   }
 
@@ -123,9 +123,9 @@
       // credentials: 'omit' … 相手のサイトのログイン情報（Cookie）は送らない
       res = await fetch(url, { mode: 'cors', credentials: 'omit' });
     } catch (_) {
-      throw new ImageError('このサイトの画像は、ドラッグでは取り込めなかった。画像を右クリック →「画像をコピー」してから、資料に Ctrl+V で貼ってね。');
+      throw new ImageError('このサイトの画像は、ドラッグでは取り込めませんでした。画像を右クリック →「画像をコピー」してから、資料に Ctrl+V で貼ってください。');
     }
-    if (!res.ok) throw new ImageError(`画像を取ってこられなかった（${res.status}）。右クリック →「画像をコピー」→ 貼り付けを試してね。`);
+    if (!res.ok) throw new ImageError(`画像を取得できませんでした（${res.status}）。右クリック →「画像をコピー」→ 貼り付けを試してください。`);
     const blob = await res.blob();
     let name = '';
     if (!/^data:/i.test(url)) {
@@ -137,7 +137,7 @@
       const ext = (name.match(/\.([a-z0-9]+)$/i) || [])[1];
       type = EXT_TYPE[(ext || '').toLowerCase()] || '';
     }
-    if (!type) throw new ImageError('落としたものは画像ではなかった。');
+    if (!type) throw new ImageError('ドロップしたものは画像ではありませんでした。');
     return new File([blob], IMAGE_EXT.test(name) ? name : '', { type });
   }
 
@@ -224,8 +224,8 @@
 
     // 画像を貼れるか（指定がなければ今開いているもの）。だめなら理由を知らせて null
     function target(memo = getMemo()) {
-      if (!memo || !memo.parentId) { notify('画像は資料に貼れる。資料を開いてから貼ってね。'); return null; }
-      if (!enabled) { notify('このブラウザでは画像を保存できない。'); return null; }
+      if (!memo || !memo.parentId) { notify('画像は資料に貼れます。資料を開いてから貼ってください。'); return null; }
+      if (!enabled) { notify('このブラウザでは画像を保存できません。'); return null; }
       return memo;
     }
 
@@ -251,11 +251,11 @@
             onChange();
           } catch (e) {
             notify(e instanceof ImageError ? e.message
-              : e && e.name === 'QuotaExceededError' ? '保存できなかった（ディスクの空きが足りない）。'
-                : '画像を保存できなかった。');
+              : e && e.name === 'QuotaExceededError' ? '保存できませんでした（ディスクの空きが足りません）。'
+                : '画像を保存できませんでした。');
           }
         }
-        if (added > 1) notify(`画像を ${added} 枚追加した。`);
+        if (added > 1) notify(`画像を ${added} 枚追加しました。`);
       });
       return true;
     }
@@ -270,7 +270,7 @@
       // 取ってくる間に別の資料に移っても、落とした時の資料に貼る
       fetchImage(url).then(
         (file) => addFiles([file], memo),
-        (e) => notify(e instanceof ImageError ? e.message : '画像を取ってこられなかった。'),
+        (e) => notify(e instanceof ImageError ? e.message : '画像を取得できませんでした。'),
       );
       return true;
     }
@@ -310,7 +310,7 @@
       if (viewIndex >= records.length) viewIndex = records.length - 1;
       render();
       if (records.length) paintViewer(); else viewer.close();
-      notify('画像を削除した。', {
+      notify('画像を削除しました。', {
         label: '元に戻す',
         run: () => {
           busy = busy.then(async () => {
@@ -321,7 +321,7 @@
               records.sort((a, b) => a.createdAt - b.createdAt);
               render();
             }
-          }).catch(() => notify('元に戻せなかった。'));
+          }).catch(() => notify('元に戻せませんでした。'));
         },
       });
     }
