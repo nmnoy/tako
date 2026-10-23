@@ -14,6 +14,7 @@
   --paper-edge: #e3e0d8;                 /* 紙のふち */
   --paper-sub: #fbf5e4;                  /* 資料用の紙（少し黄みがかった、カードや付箋の色） */
   --paper-sub-edge: #e5d9b8;
+  --done: #c8553d;                       /* 完成の印（紙の上端の帯・一覧の「完成」）。朱色 */
   --link: #3f78b5;                       /* 資料の中の URL の下線 */
   --text-size: 17px;                     /* 本文の文字サイズ。JS が .app に設定で上書きする */
   /* 紙の幅と1行の幅。文字サイズを変えても紙は動かず、1行の字数が変わるだけにする
@@ -48,6 +49,7 @@
     --paper-edge: #2d2c29;
     --paper-sub: #25231c;
     --paper-sub-edge: #3a362a;
+    --done: #d9785f;
     --link: #7eaee0;
     color-scheme: dark; /* ブラウザの部品（ラジオボタン・スクロールバーなど）も暗い色で描かせる */
   }
@@ -68,6 +70,7 @@
   --paper-edge: #2d2c29;
   --paper-sub: #25231c;
   --paper-sub-edge: #3a362a;
+  --done: #d9785f;
   --link: #7eaee0;
   color-scheme: dark;
 }
@@ -100,25 +103,18 @@ body {
   --paper-edge: var(--paper-sub-edge);
 }
 
-/* 完成した作品：白い紙に黒い文字（下書きの生成り色 → 清書）。紙と文字の変数を紙の中だけで差し替える */
-.app.is-done .sheet {
-  --paper: #ffffff;
-  --paper-edge: #d6d3cc;
-  --text: #111111;
-  color: var(--text);
-}
-/* ダークモードで真っ白にするとまぶしいので、少し青みのある、くっきりした黒い紙にする（こちらも2か所） */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .app.is-done .sheet {
-    --paper: #15171a;
-    --paper-edge: #3a3f46;
-    --text: #f4f4f2;
-  }
-}
-:root[data-theme="dark"] .app.is-done .sheet {
-  --paper: #15171a;
-  --paper-edge: #3a3f46;
-  --text: #f4f4f2;
+/* 完成した作品：紙の上端に朱色の細い帯（判子の朱肉のイメージ）。紙と文字の色は変えない。
+   紙の色を変える案は、ライトだと元の紙がほぼ白で違いが見えず、資料の生成りとも被るのでやめた（10/24）。
+   帯は紙（背景のグラデーション）と同じ幅・同じ位置。背景と同じくスクロールしても動かない */
+.app.is-done .sheet::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--page-l);
+  width: var(--page-w);
+  height: 4px;
+  background: var(--done);
+  pointer-events: none; /* 本文のクリックを邪魔しない */
 }
 
 .app.font-serif {
@@ -1036,9 +1032,9 @@ body {
   flex: none;
   margin-left: 6px;
   padding: 0 5px;
-  border: 1px solid var(--accent);
+  border: 1px solid var(--done);
   border-radius: 3px;
-  color: var(--accent);
+  color: var(--done);
   font-size: 10px;
   font-weight: 600;
   line-height: 1.5;

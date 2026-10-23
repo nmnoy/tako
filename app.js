@@ -516,7 +516,7 @@
     // 視界で一番広い面積（紙）が変わるので、本文ではなく資料を書いていることが意識しなくても分かる
     const parent = memo.parentId ? findMemo(memo.parentId) : null;
     app.classList.toggle('is-sub', !!parent);
-    // 完成した作品は、白い紙に黒い文字（清書）にする
+    // 完成した作品は、紙の上端に朱色の帯を出す
     app.classList.toggle('is-done', !parent && !!memo.completed);
     crumb.hidden = !parent;
     if (parent) {
@@ -1562,7 +1562,7 @@
   done = window.KotobaDone.create({
     getMemo: (id) => { syncBody(); return findMemo(id); },
     countChars,
-    // 完成の印が変わった・完成時の版に戻した、など。一覧と紙の色を描き直して保存する
+    // 完成の印が変わった・完成時の版に戻した、など。一覧と紙の帯を描き直して保存する
     commit: ({ reopen = false } = {}) => {
       if (reopen) {
         bodyDirty = false; // 原稿を直接書き換えたので、エディタの中身で上書きし返さない
