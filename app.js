@@ -85,6 +85,8 @@
   let images = null;
   // 自動バックアップ（autobackup.js）
   let autobackup = null;
+  // 完成（done.js）
+  let done = null;
 
   // ちょっとしたお知らせを数秒だけ出す
   // action を渡すとボタン付きになり、押されるまで消えない（「新しい版があります［更新］」など）
@@ -140,7 +142,9 @@
   }
 
   function newMemo(body = '', parentId = null) {
-    return { id: makeId(), parentId, title: '', body, updatedAt: Date.now() };
+    // createdAt … 作った日。完成のお祝いの「書き始めてから〇日」に使う（10/23 以前の原稿にはない）
+    const now = Date.now();
+    return { id: makeId(), parentId, title: '', body, createdAt: now, updatedAt: now };
   }
 
   function findMemo(id) {
@@ -356,6 +360,15 @@
     label.dataset.labelFor = memo.id;
     item.appendChild(label);
 
+    // 完成した作品の印
+    if (memo.completed && !memo.parentId) {
+      const badge = document.createElement('span');
+      badge.className = 'memo-done';
+      badge.textContent = '完成';
+      badge.title = `${new Date(memo.completed.at).toLocaleDateString()} に完成`;
+      item.appendChild(badge);
+    }
+
     // 文字数（ラベルと同じく、打っている間は手が止まったときにだけ差し替える）
     const cnt = document.createElement('span');
     cnt.className = 'memo-count';
@@ -404,7 +417,15 @@
           isCurrent && m.id !== store.activeId ? 'current-parent' : '',
         ].filter(Boolean),
         onOpen: () => openMemo(m.id),
-        actions: [{ text: '×', title: 'この原稿を削除', onClick: () => deleteMemo(m.id) }],
+        actions: [
+          {
+            className: 'done-act',
+            text: '✓',
+            title: m.completed ? '完成した作品（確認・完成時の版に戻す・取り消し）' : '完成にする（書き上げたら押す）',
+            onClick: () => done.toggle(m.id),
+          },
+          { text: '×', title: 'この原稿を削除', onClick: () => deleteMemo(m.id) },
+        ],
       }));
 
       for (const s of subsOf(m.id)) {
@@ -494,6 +515,8 @@
     // 視界で一番広い面積（紙）が変わるので、本文ではなく資料を書いていることが意識しなくても分かる
     const parent = memo.parentId ? findMemo(memo.parentId) : null;
     app.classList.toggle('is-sub', !!parent);
+    // 完成した作品は、白い紙に黒い文字（清書）にする
+    app.classList.toggle('is-done', !parent && !!memo.completed);
     crumb.hidden = !parent;
     if (parent) {
       crumbParent.textContent = memoLabel(parent);
@@ -1499,6 +1522,27 @@
   autobackup.init();
 
   window.KotobaAbout.create({ isMac: IS_MAC });
+
+  done = window.KotobaDone.create({
+    getMemo: (id) => { syncBody(); return findMemo(id); },
+    countChars,
+    // 完成の印が変わった・完成時の版に戻した、など。一覧と紙の色を描き直して保存する
+    commit: ({ reopen = false } = {}) => {
+      if (reopen) {
+        bodyDirty = false; // 原稿を直接書き換えたので、エディタの中身で上書きし返さない
+        openMemo(store.activeId);
+      } else {
+        const m = activeMemo();
+        app.classList.toggle('is-done', !!(m && !m.parentId && m.completed));
+        renderList();
+      }
+      scheduleSave();
+    },
+    openExport: () => exporter.open(),
+    notify: showToast,
+    settings: store.settings,
+    label: memoLabel,
+  });
 
   window.KotobaPWA.create({
     installButton: document.getElementById('installBtn'),

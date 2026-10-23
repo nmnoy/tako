@@ -42,6 +42,9 @@
         id: m.id, parentId: m.parentId || null, title: m.title, body: m.body, updatedAt: m.updatedAt,
         // base … この原稿を最後に別の端末とやりとりしたときの版（「新しい方で更新」で、両方で書き換えたかを見分ける）
         ...(Number.isFinite(m.base) ? { base: m.base } : {}),
+        ...(Number.isFinite(m.createdAt) ? { createdAt: m.createdAt } : {}),
+        ...(m.completed ? { completed: m.completed } : {}), // 完成の印と、完成時の原稿
+        ...(m.cheered ? { cheered: true } : {}),               // 完成のときに応援のお願いを出したか
       })),
       activeId: store.activeId,
       pinnedId: store.pinnedId,
@@ -68,6 +71,17 @@
   // ===============================================================
   // 読む
   // ===============================================================
+
+  // 完成の印（done.js）。形がおかしければ捨てる（原稿そのものは読めるので、印がなくなるだけ）
+  function cleanCompleted(c) {
+    if (!c || typeof c !== 'object' || !Number.isFinite(c.at)) return null;
+    const s = c.snapshot && typeof c.snapshot === 'object' ? c.snapshot : null;
+    return {
+      at: c.at,
+      chars: Number.isFinite(c.chars) ? c.chars : 0,
+      ...(s ? { snapshot: { title: String(s.title || ''), body: String(s.body || '') } } : {}),
+    };
+  }
 
   // 戻り値: { ok: true, data, counts } または { ok: false, error }
   // 多少おかしなところ（型の違い・親が見つからない資料）は直して読む。読めないものだけ断る。
@@ -108,6 +122,9 @@
         body: str(m.body),
         updatedAt: Number.isFinite(m.updatedAt) ? m.updatedAt : Date.now(),
         ...(Number.isFinite(m.base) ? { base: m.base } : {}),
+        ...(Number.isFinite(m.createdAt) ? { createdAt: m.createdAt } : {}),
+        ...(cleanCompleted(m.completed) ? { completed: cleanCompleted(m.completed) } : {}),
+        ...(m.cheered === true ? { cheered: true } : {}),
       });
     }
 
@@ -388,7 +405,7 @@
       if (!theirsChanged) {
         same++; // 向こうは古い版のまま。こちらを残す
       } else if (!oursChanged) {
-        out[i] = { ...c, title: m.title, body: m.body, parentId: parentId || c.parentId || null, updatedAt: m.updatedAt, base: m.updatedAt };
+        out[i] = { ...c, title: m.title, body: m.body, parentId: parentId || c.parentId || null, updatedAt: m.updatedAt, base: m.updatedAt, ...(m.completed ? { completed: m.completed } : {}) };
         updated++;
       } else {
         // 両方で書き換えている。どちらも消さない（向こうの版を印付きで足す）。

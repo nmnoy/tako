@@ -75,6 +75,22 @@ body {
   --paper-edge: var(--paper-sub-edge);
 }
 
+/* 完成した作品：白い紙に黒い文字（下書きの生成り色 → 清書）。紙と文字の変数を紙の中だけで差し替える */
+.app.is-done .sheet {
+  --paper: #ffffff;
+  --paper-edge: #d6d3cc;
+  --text: #111111;
+  color: var(--text);
+}
+@media (prefers-color-scheme: dark) {
+  /* ダークモードで真っ白にするとまぶしいので、少し青みのある、くっきりした黒い紙にする */
+  .app.is-done .sheet {
+    --paper: #15171a;
+    --paper-edge: #3a3f46;
+    --text: #f4f4f2;
+  }
+}
+
 .app.font-serif {
   --font-text: var(--font-serif);
 }
@@ -979,6 +995,23 @@ body {
   white-space: nowrap;
 }
 
+/* 完成した作品の印 */
+.memo-done {
+  flex: none;
+  margin-left: 6px;
+  padding: 0 5px;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+/* 完成ボタン（✓）。ほかのボタンと同じく、行にマウスを乗せたときだけ出る */
+.memo-item .memo-act.done-act {
+  font-size: 11px;
+}
+
 /* 文字数。ラベルより目立たせない。桁がそろうように等幅数字 */
 .memo-count {
   flex: none;
@@ -1091,6 +1124,98 @@ body {
   opacity: 1;
   color: var(--text);
   outline: none;
+}
+
+/* ---------- 完成（done.js） ---------- */
+.done-dialog {
+  width: min(400px, calc(100vw - 32px));
+  text-align: center;
+}
+.done-tako {
+  display: block;
+  margin: 4px auto 6px;
+  border-radius: 14px;
+  animation: tako-wiggle 0.9s ease-in-out 2;
+}
+/* タコが小さく喜ぶ（2回だけ揺れて止まる。派手にしない） */
+@keyframes tako-wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-8deg); }
+  75% { transform: rotate(8deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .done-tako { animation: none; }
+}
+.done-title {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+.done-title.small {
+  font-size: 15px;
+}
+.done-work {
+  margin: 0;
+  font-size: 14px;
+}
+.done-stats {
+  margin: 4px 0 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.done-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.done-actions button {
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.done-actions button:hover {
+  background: var(--hover);
+}
+.done-actions .done-primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--bg);
+}
+.done-note {
+  margin: 14px 0 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.done-cheer {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+.done-cheer a {
+  margin-left: 6px;
+  color: var(--link);
+  white-space: nowrap; /* 「応援／する」と途中で折り返さない */
+}
+.done-cheer-off {
+  margin-left: 10px;
+  white-space: nowrap;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 /* ---------- このアプリについて（about.js） ---------- */

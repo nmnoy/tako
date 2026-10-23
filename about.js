@@ -128,5 +128,5 @@
     return { open, APP_NAME, APP_VERSION };
   }
 
-  root.KotobaAbout = { create, APP_NAME, APP_VERSION };
+  root.KotobaAbout = { create, APP_NAME, APP_VERSION, SUPPORT_URL };
 })(typeof window !== 'undefined' ? window : globalThis);

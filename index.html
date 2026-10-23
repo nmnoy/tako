@@ -183,6 +183,11 @@
     </form>
   </dialog>
 
+  <!-- 完成（done.js）。中身は開くたびに作る -->
+  <dialog id="doneDialog" class="export-dialog done-dialog" aria-label="完成">
+    <div class="done-body"></div>
+  </dialog>
+
   <!-- このアプリについて（about.js） -->
   <dialog id="aboutDialog" class="export-dialog about-dialog" aria-label="タコエディタについて">
     <form method="dialog">
@@ -246,6 +251,7 @@
   <script src="autobackup.js"></script>
   <script src="notices.js"></script>
   <script src="about.js"></script>
+  <script src="done.js"></script>
   <script src="pwa.js"></script>
   <script src="app.js"></script>
 </body>
