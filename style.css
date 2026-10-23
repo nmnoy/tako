@@ -1181,6 +1181,15 @@ body {
 .done-actions button:hover {
   background: var(--hover);
 }
+/* 確認の画面は最初「キャンセル」にフォーカスがある。キーボードで操作する人に見えるよう枠を出す */
+.done-actions button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* 説明の文のあとにボタンが来るとき（確認の画面）は間をあける */
+.done-note + .done-actions {
+  margin-top: 16px;
+}
 .done-actions .done-primary {
   border-color: var(--accent);
   background: var(--accent);

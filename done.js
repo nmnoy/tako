@@ -51,6 +51,34 @@
     // ------------------------------------------------------------
     // 完成にする → お祝い
     // ------------------------------------------------------------
+    // 完成にする前に確かめる（一覧の ✓ はマウスを乗せると出るので、うっかり押しやすい）
+    function ask(memo) {
+      const chars = countChars(memo.body);
+      body.textContent = '';
+      body.append(
+        el('h2', { class: 'done-title small', text: `『${label(memo)}』を完成にする？` }),
+        el('p', { class: 'done-stats', text: `いまの文字数：${chars.toLocaleString()}字` }),
+      );
+      if (chars === 0) {
+        // 空っぽの作品は完成にできない（✓ の押し間違いで一番ありがちなケース）
+        body.append(
+          el('p', { class: 'done-note', text: 'まだ本文に何も書いていない。書き上げたら、もう一度 ✓ を押してね。' }),
+          el('div', { class: 'done-actions' }, button('閉じる', close, 'done-primary')),
+        );
+      } else {
+        body.append(
+          el('p', { class: 'done-note', text: '今の原稿を「完成時の版」として残す。完成にしたあとも書き直せるし、一覧の ✓ からいつでも取り消せる。' }),
+          el('div', { class: 'done-actions' },
+            button('キャンセル', close),
+            button('完成にする', () => complete(memo), 'done-primary')),
+        );
+      }
+      if (!dialog.open) dialog.showModal();
+      // うっかり Enter で完成しないよう、最初は「キャンセル」（空なら「閉じる」）にフォーカスを置く
+      const first = body.querySelector('.done-actions button');
+      if (first) first.focus();
+    }
+
     function complete(memo) {
       const chars = countChars(memo.body);
       memo.completed = { at: Date.now(), chars, snapshot: { title: memo.title, body: memo.body } };
@@ -90,7 +118,7 @@
           }));
         body.append(line);
       }
-      dialog.showModal();
+      if (!dialog.open) dialog.showModal(); // 確認の画面から続けて出すときは、開いたまま中身だけ差し替える
     }
 
     // ------------------------------------------------------------
@@ -110,7 +138,7 @@
           button('完成を取り消す', () => { delete memo.completed; commit(); close(); notify('完成を取り消した。'); }),
           button('閉じる', close, 'done-primary')),
       );
-      dialog.showModal();
+      if (!dialog.open) dialog.showModal();
     }
 
     // 完成時の版に戻す。今の文章はお知らせの「元に戻す」で取り戻せる
@@ -132,7 +160,7 @@
       const memo = getMemo(id);
       if (!memo || memo.parentId) return;
       if (memo.completed) manage(memo);
-      else complete(memo);
+      else ask(memo);
     }
 
     return { toggle };
