@@ -50,6 +50,9 @@ def main() -> int:
             print(f'注意: {rel.as_posix()} が ASSETS に入っていない', file=sys.stderr)
 
     h = hashlib.sha256()
+    # sw.js 自身の中身も入れる（VERSION の行は除く。入れると書き換えるたびに値が変わって終わらない）。
+    # これがないと、sw.js だけ直したときにキャッシュの名前が変わらず、壊れた古いキャッシュに上書きすることになる
+    h.update(re.sub(r"const VERSION = '[^']*';", '', src).encode())
     for a in assets:
         h.update(a.encode())
         h.update((ROOT / a).read_bytes())

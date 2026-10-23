@@ -89,6 +89,10 @@
     });
 
     navigator.serviceWorker.register('sw.js').then((reg) => {
+      // 開くたびに新しい版を確かめる。register() は登録済みなら何もしないので、明示的に update() を呼ぶ。
+      // 普段はページを開いたときにブラウザも確かめてくれるが、Shift+再読み込み（SW を通さない読み込み）では走らない。
+      // 古い版の SW が壊れてページが開けなくなったとき、Shift+再読み込みで1回開けば新しい版に入れ替わるのは、これのおかげ
+      reg.update().catch(() => {});
       // 前回すでに届いて待機していた新版
       if (reg.waiting && navigator.serviceWorker.controller) notify(reg.waiting);
 

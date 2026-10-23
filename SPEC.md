@@ -313,6 +313,9 @@
 - 「アプリにする」ボタン: `beforeinstallprompt`（Chrome / Edge のみ）が来たときだけ右下に出す。Safari は「Dock に追加」、Firefox はデスクトップのインストールにほぼ非対応なので「Edge・Chrome 推奨」と案内する
 - オフライン: sw.js がインストール時に ASSETS を全部キャッシュし、以後はキャッシュ優先で返す。辞書（約4MB）も含む
 - **更新**: 新しい sw.js が届いても勝手に切り替えない（書いている途中の再読み込みを避ける）。待機させてトースト「新しい版があります［更新］」を出し、押されたら saveNow → skipWaiting → controllerchange で再読み込み。初回インストール時の controllerchange では読み直さない（reloading フラグ）
+- **転送（リダイレクト）つきの応答を保存しない（10/23 の本番障害）**: Cloudflare Workers は /index.html を / に 307 で転送する。SW が転送を経た応答（redirected）をそのまま保存してページとして返すと、Chrome が弾いて ERR_FAILED になる（普通の再読み込みで開けず、Shift+再読み込みだけ開ける）。手元の python サーバーは転送しないので気づけなかった。対策: 保存するときに印を外した複製にする（sw.js の clean）、ページを返すときに印付きならネットから取り直す。テストは「/index.html を / に転送するサーバー」（scratchpad の redir_server.py 相当）で行う
+- 壊れた版からの回復: 壊れた SW はページを返せないので、ブラウザが新しい版を確かめに行かない（確認はページが開けたとき）。pwa.js は開くたびに reg.update() を呼ぶ（register() は登録済みだと何もしない）。新しい sw.js は、古いキャッシュに転送つきのページが入っていたら skipWaiting してすぐ入れ替わる。→ 新しい版を公開したあと Shift+再読み込みで1回開けば直る
+- stamp_sw.py の VERSION には sw.js 自身の中身（VERSION の行を除く）も入れる。入れないと sw.js だけ直したときにキャッシュの名前が変わらず、壊れた古いキャッシュに上書きすることになる
 - 開きっぱなし対策: 画面に戻ってきたとき、前回の確認から1時間以上たっていれば `reg.update()` で更新を確かめる
 - **公開は Cloudflare Pages で `python3 tools/build_site.py` を実行して `dist/` を公開する**（10/23）。sw.js の ASSETS に書いたファイルと sw.js だけを dist/ にコピーするので、SPEC.md や tools/ は公開されない。中で stamp_sw.py も実行するので、VERSION の書き換え忘れも起きない。dist/ は .gitignore 済み
 - **公開前に必ず `python3 tools/stamp_sw.py`**。ファイルの中身のハッシュで sw.js の VERSION を書き換える。忘れると利用者の手元で古い版が出続ける（PWA で一番多い事故）。ASSETS の書き忘れ・存在しないファイルも警告する

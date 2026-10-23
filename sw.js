@@ -11,7 +11,7 @@
 //   VERSION を変え忘れると、style.css や app.js を直しても、利用者の手元では古いキャッシュが出続ける。
 //   これが PWA で一番よくある事故。
 
-const VERSION = '1d20519255af';
+const VERSION = '1fec1b21519f';
 const CACHE = `kotoba-${VERSION}`;
 
 // キャッシュに入れるファイル。ファイルを増やしたらここにも足す（stamp_sw.py が足し忘れを警告する）
@@ -46,15 +46,35 @@ const ASSETS = [
   'licenses/Japanese-WordNet.txt',
 ];
 
+// 転送（リダイレクト）を経て届いた応答の「転送された」印を外した、きれいな複製を作る。
+// Cloudflare Workers は /index.html を / へ転送する。転送つきの応答をそのまま保存してページとして返すと、
+// Chrome は「転送つきの応答はページに使えない」と弾いて ERR_FAILED になる（普通の再読み込みで開けなくなる。
+// Shift+再読み込みは SW を通らないので開ける）。手元の python サーバーは転送しないので気づけなかった
+async function clean(res) {
+  if (!res.redirected) return res;
+  return new Response(await res.blob(), { status: res.status, statusText: res.statusText, headers: res.headers });
+}
+
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE).then((cache) =>
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    await Promise.all(ASSETS.map(async (url) => {
       // cache: 'reload' … ブラウザの通常の HTTP キャッシュを通さず、必ずサーバーから取る。
       // そうしないと「新しい sw.js が、古い app.js を HTTP キャッシュから拾って保管する」ことがある
-      cache.addAll(ASSETS.map((url) => new Request(url, { cache: 'reload' })))
-    )
-  );
-  // ここで skipWaiting() はしない。開いている画面がある間は古い版のまま動かし、切り替えはユーザーに任せる
+      const res = await fetch(new Request(url, { cache: 'reload' }));
+      if (!res.ok) throw new Error(`${url} を取れなかった（${res.status}）`);
+      await cache.put(url, await clean(res));
+    }));
+
+    // 普段はここで skipWaiting() しない（開いている画面がある間は古い版のまま動かし、切り替えはユーザーに任せる）。
+    // ただし古い版のキャッシュに「転送つきのページ」が入っていたら、古い版ではページが開けず「更新」も押せないので、
+    // 待たずにすぐ入れ替わる（上のバグを踏んだ版からの自動回復）
+    for (const key of await caches.keys()) {
+      if (!key.startsWith('kotoba-') || key === CACHE) continue;
+      const old = await (await caches.open(key)).match('index.html');
+      if (old && old.redirected) { self.skipWaiting(); break; }
+    }
+  })());
 });
 
 self.addEventListener('activate', (event) => {
@@ -74,10 +94,18 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return; // 外部（リンク先など）には口を出さない
 
   // ページそのもの（/ や /index.html?x=1）は、どの URL で来ても index.html を返す
+  // 保存したものに転送の印が付いていたら（古い版のキャッシュなど）、ネットから取り直す。ネットもだめなら印を外して返す
   if (req.mode === 'navigate') {
-    event.respondWith(
-      caches.match('index.html', { cacheName: CACHE }).then((hit) => hit || fetch(req))
-    );
+    event.respondWith((async () => {
+      const hit = await caches.match('index.html', { cacheName: CACHE });
+      if (hit && !hit.redirected) return hit;
+      try {
+        return await fetch(req);
+      } catch (e) {
+        if (hit) return clean(hit);
+        throw e;
+      }
+    })());
     return;
   }
 
