@@ -1486,6 +1486,7 @@
     storage,
     onImagesChanged: () => images.refresh(),
     onDropFiles: (files) => images.addFiles(files),
+    onDropWeb: (dt) => images.addFromDrop(dt),
     // 前回選んだ戻し方（追加 / 新しい方で更新）。引き継ぎで毎回使う人が、毎回選び直さなくていいように
     // 手動のバックアップも、自動バックアップのフォルダがあればそこへ（置き場所を1か所にまとめる）
     folder: {

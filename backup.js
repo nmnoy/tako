@@ -511,7 +511,7 @@
 
   function create({
     getStore, getLastBackupAt, onBackedUp, replaceWith, mergeWith, makeId, notify,
-    storage, onImagesChanged, onDropFiles, getMode, setMode,
+    storage, onImagesChanged, onDropFiles, onDropWeb, getMode, setMode,
     folder = null, // { name(), ensure(), write(name, blob) } … 自動バックアップのフォルダ（あれば手動の保存もそこへ）
   }) {
     const exportDialog = document.getElementById('exportDialog');
@@ -717,20 +717,34 @@
 
     // ファイルをウィンドウに落としたとき。何もしないとブラウザがそのファイルを開いて、エディタから離れてしまう。
     // .json / .zip はバックアップとして読み、画像は資料に貼る（onDropFiles）。それ以外は受け付けない
-    const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+    //
+    // ブラウザの別のタブから画像をドラッグしてきたとき（Google の画像検索など）は、ファイルではなく
+    // 「URL」と「HTML」が来る。画像が見つかれば資料に貼る（onDropWeb → images.addFromDrop）。
+    // 画像でなければ（普通のリンクや文字）、本文・資料の中ならブラウザの普通の処理（文字として入れる）に任せる。
+    // 本文の外に落ちたリンクは何もしない（放っておくとブラウザがそのリンク先へ移動して、エディタから離れる）
+    const types = (e) => Array.from((e.dataTransfer && e.dataTransfer.types) || []);
+    const hasFiles = (e) => types(e).includes('Files');
+    const hasWeb = (e) => types(e).some((t) => t === 'text/uri-list' || t === 'text/html');
+    const isTextBox = (el) => el && el.closest && el.closest('textarea, input');
     window.addEventListener('dragover', (e) => {
-      if (!hasFiles(e)) return;
+      if (!hasFiles(e) && !hasWeb(e)) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = 'copy';
     });
     window.addEventListener('drop', (e) => {
-      if (!hasFiles(e)) return;
-      e.preventDefault();
-      if (document.querySelector('dialog[open]')) return;
-      const files = Array.from(e.dataTransfer.files);
-      const file = files[0];
-      if (file && /\.(json|zip)$/i.test(file.name)) openFile(file);
-      else if (!(onDropFiles && onDropFiles(files))) notify('ここに落とせるのは、タコエディタのバックアップか、資料に貼る画像だけ。');
+      if (hasFiles(e)) {
+        e.preventDefault();
+        if (document.querySelector('dialog[open]')) return;
+        const files = Array.from(e.dataTransfer.files);
+        const file = files[0];
+        if (file && /\.(json|zip)$/i.test(file.name)) openFile(file);
+        else if (!(onDropFiles && onDropFiles(files))) notify('ここに落とせるのは、タコエディタのバックアップか、資料に貼る画像だけ。');
+        return;
+      }
+      if (!hasWeb(e)) return;
+      if (document.querySelector('dialog[open]')) { e.preventDefault(); return; }
+      if (onDropWeb && onDropWeb(e.dataTransfer)) { e.preventDefault(); return; }
+      if (!isTextBox(e.target)) e.preventDefault();
     });
 
     return { save, openFile, makeBlob, refresh: showLast };

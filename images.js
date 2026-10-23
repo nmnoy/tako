@@ -3,6 +3,7 @@
 // 構成:
 //   prepare（DOM は使うが画面には出さない）: 貼られた画像を、保存してよい大きさに整える
 //   create                                  : 紙の下の「画像の帯」、拡大表示、貼り付け・ドロップ・ボタンからの追加
+//   imageUrlFrom / fetchImage               : ブラウザの別タブ（Google の画像検索など）からドラッグしてきた画像を取ってくる
 //
 // 画像を貼れるのは資料だけ。本文（原稿）は書き出して人に渡すものなので、画像は混ぜない。
 //
@@ -77,6 +78,68 @@
   }
 
   const isImageFile = (f) => f && /^image\//.test(f.type);
+
+  // ------------------------------------------------------------
+  // ブラウザの別のタブ（Google の画像検索など）から、画像をそのままドラッグして落としたとき
+  // ------------------------------------------------------------
+  // そういうドラッグにはファイルが入っていないことが多い（とくに Google の検索結果は画像がリンクで包まれていて、
+  // 「リンクの URL」と「その部分の HTML」しか来ない）。なので HTML の <img src> か URL を拾って、こちらで取りに行く。
+  //   - src が data:image/...（Google の小さい画像はこれが多い）… 中身そのものなので必ず取り込める
+  //   - src が https://...  … 相手のサーバーが「よそのサイトから読んでいい」（CORS）と言っているときだけ取れる。
+  //     言っていなければブラウザが止める。これはブラウザの決まりで、こちらからは回避できない
+  //     （回避するには自前の中継サーバーが要る。タコエディタはサーバーを持たない方針なのでやらない）。
+  //     取れなかったら「右クリック →『画像をコピー』→ 資料に貼り付け」を案内する。コピーはブラウザ自身がやるので必ず通る
+  const IMAGE_EXT = /\.(png|jpe?g|gif|webp|avif|bmp|svg)(?:[?#]|$)/i;
+  const EXT_TYPE = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', avif: 'image/avif', bmp: 'image/bmp', svg: 'image/svg+xml' };
+
+  // ドラッグの中身から、画像らしい URL を1つ選ぶ。なければ ''
+  function imageUrlFrom(dt) {
+    if (!dt) return '';
+    // ページの文章を選んでドラッグしたもの（文字＋途中の画像）は、文字として扱う。
+    // 画像やリンクのドラッグなら、text/plain は空か URL になる
+    const plain = (dt.getData('text/plain') || '').trim();
+    if (plain && !/^(https?:|data:)\S*$/i.test(plain)) return '';
+    const ok = (u) => u && (/^data:image\//i.test(u) || /^https?:/i.test(u)) && !u.startsWith(location.origin);
+    // 1. HTML の中の <img>（リンクで包まれていても、画像そのものの src が取れる）
+    const html = dt.getData('text/html');
+    if (html) {
+      const doc = new DOMParser().parseFromString(html, 'text/html'); // 読むだけ。画面には入れないのでスクリプトは動かない
+      const img = doc.querySelector('img[src]');
+      if (img) {
+        const src = img.getAttribute('src');
+        if (ok(src)) return src;
+      }
+    }
+    // 2. URL そのもの（画像の URL を直接ドラッグしたとき）。普通のページへのリンクは拾わない
+    const uri = (dt.getData('text/uri-list') || '').split(/\r?\n/).find((l) => l && !l.startsWith('#'));
+    if (ok(uri) && (/^data:image\//i.test(uri) || IMAGE_EXT.test(uri))) return uri;
+    return '';
+  }
+
+  // URL から画像を File にする。取れなければ ImageError
+  async function fetchImage(url) {
+    let res;
+    try {
+      // credentials: 'omit' … 相手のサイトのログイン情報（Cookie）は送らない
+      res = await fetch(url, { mode: 'cors', credentials: 'omit' });
+    } catch (_) {
+      throw new ImageError('このサイトの画像は、ドラッグでは取り込めなかった。画像を右クリック →「画像をコピー」してから、資料に Ctrl+V で貼ってね。');
+    }
+    if (!res.ok) throw new ImageError(`画像を取ってこられなかった（${res.status}）。右クリック →「画像をコピー」→ 貼り付けを試してね。`);
+    const blob = await res.blob();
+    let name = '';
+    if (!/^data:/i.test(url)) {
+      try { name = decodeURIComponent(new URL(url).pathname.split('/').pop() || ''); } catch (_) { /* 何もしない */ }
+    }
+    // サーバーが種類を正しく言わないことがある（application/octet-stream など）。そのときは拡張子から推す
+    let type = blob.type;
+    if (!/^image\//.test(type)) {
+      const ext = (name.match(/\.([a-z0-9]+)$/i) || [])[1];
+      type = EXT_TYPE[(ext || '').toLowerCase()] || '';
+    }
+    if (!type) throw new ImageError('落としたものは画像ではなかった。');
+    return new File([blob], IMAGE_EXT.test(name) ? name : '', { type });
+  }
 
   function formatBytes(n) {
     if (n < 1024) return `${n}B`;
@@ -159,19 +222,20 @@
       return id;
     }
 
+    // 画像を貼れるか（指定がなければ今開いているもの）。だめなら理由を知らせて null
+    function target(memo = getMemo()) {
+      if (!memo || !memo.parentId) { notify('画像は資料に貼れる。資料を開いてから貼ってね。'); return null; }
+      if (!enabled) { notify('このブラウザでは画像を保存できない。'); return null; }
+      return memo;
+    }
+
     // ファイルを受け取って、縮小して保存し、帯に足す
-    function addFiles(files) {
-      const memo = getMemo();
+    // forMemo … 貼る先の資料（ドラッグしてきた画像を取ってくる間に別の資料へ移ったときのため）。省略時は今開いている資料
+    function addFiles(files, forMemo) {
       const images = Array.from(files || []).filter(isImageFile);
       if (!images.length) return false;
-      if (!memo || !memo.parentId) {
-        notify('画像は資料に貼れる。資料を開いてから貼ってね。');
-        return true;
-      }
-      if (!enabled) {
-        notify('このブラウザでは画像を保存できない。');
-        return true;
-      }
+      const memo = target(forMemo);
+      if (!memo) return true;
       busy = busy.then(async () => {
         let added = 0;
         for (const f of images) {
@@ -193,6 +257,21 @@
         }
         if (added > 1) notify(`画像を ${added} 枚追加した。`);
       });
+      return true;
+    }
+
+    // ブラウザから画像をドラッグしてきたとき（上の imageUrlFrom / fetchImage を参照）。
+    // 画像らしいものが見つかれば true（呼び出し側はブラウザの普通の処理＝URL の文字を本文に入れる、を止める）
+    function addFromDrop(dt) {
+      const url = imageUrlFrom(dt);
+      if (!url) return false;
+      const memo = target();
+      if (!memo) return true;
+      // 取ってくる間に別の資料に移っても、落とした時の資料に貼る
+      fetchImage(url).then(
+        (file) => addFiles([file], memo),
+        (e) => notify(e instanceof ImageError ? e.message : '画像を取ってこられなかった。'),
+      );
       return true;
     }
 
@@ -288,8 +367,8 @@
       addFiles(files);
     }
 
-    return { show, refresh, addFiles, handlePaste, isImageFile, get memoId() { return memoId; } };
+    return { show, refresh, addFiles, addFromDrop, handlePaste, isImageFile, get memoId() { return memoId; } };
   }
 
-  root.KotobaImages = { prepare, create, isImageFile, formatBytes, ImageError };
+  root.KotobaImages = { prepare, create, isImageFile, formatBytes, ImageError, imageUrlFrom, fetchImage };
 })(typeof window !== 'undefined' ? window : globalThis);
