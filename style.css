@@ -128,6 +128,10 @@ body {
 .app.panel-hidden .panel {
   visibility: hidden;
 }
+/* 「パネルを開く」は畳んでいるときだけ */
+.app:not(.panel-hidden) .panel-open-btn {
+  display: none;
+}
 
 /* ---------- メイン（紙 / ステータス） ---------- */
 

@@ -1239,6 +1239,10 @@
   for (const btn of [sizeDown, sizeUp, sizeLabel]) {
     btn.addEventListener('pointerdown', (ev) => ev.preventDefault());
   }
+  document.getElementById('panelBtn').addEventListener('click', () => {
+    app.classList.remove('panel-hidden');
+    editor.focus();
+  });
   themeBtn.addEventListener('pointerdown', (ev) => ev.preventDefault()); // 押しても本文のフォーカスを奪わない
   themeBtn.addEventListener('click', () => {
     const cur = store.settings.theme || 'auto';

@@ -107,6 +107,8 @@
           <button class="seg-btn size-value" type="button" data-size-reset title="標準の大きさに戻す（Ctrl/⌘ と 0）"></button>
           <button class="seg-btn size-btn" type="button" data-size-step="1" title="文字を大きく（Ctrl/⌘ と ＋）" aria-label="文字を大きく">A<span class="size-sign">＋</span></button>
         </div>
+        <!-- 右のパネルを畳んでいるときだけ出る。畳むと開き方（Ctrl+\）の案内もパネルと一緒に消えて、忘れると戻せなくなるため -->
+        <button id="panelBtn" class="status-text-btn panel-open-btn" type="button" title="類語と原稿の一覧を開く（Ctrl/⌘ と \）">パネルを開く</button>
       </footer>
     </main>
 
