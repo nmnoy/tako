@@ -128,7 +128,7 @@
     lastBackupAt: 0,  // 最後にバックアップを保存した時刻（この端末で。バックアップの中身には入れない）
     deleted: [],      // 消した原稿の印（墓標）{ id, at }。「新しい方で更新」で、消したことを別の端末に伝えるため
     settings: {
-      font: 'sans', vertical: false, typewriter: false, fontSize: 17,
+      font: 'sans', vertical: false, typewriter: false, fontSize: 17, assoc: true,
       find: { width: true, kana: false, conj: false }, // 検索のゆれの扱い
       export: { scope: 'main', format: 'txt' },          // 書き出しで前回選んだもの
     },
@@ -210,6 +210,7 @@
     if (out.font !== 'serif') out.font = 'sans';
     out.vertical = out.vertical === true;
     if (!['auto', 'light', 'dark'].includes(out.theme)) out.theme = 'auto';
+    out.assoc = out.assoc !== false; // 連想の欄を開いておくか（既定は開く）
     return out;
   }
 
@@ -835,6 +836,12 @@
 
   // 選択した瞬間の語。何度差し替えても、これを押せば元に戻せる
   let origin = null; // { key, text }
+  // 連想の語を押して、別の語を引き直してきた道のり（戻るボタン用）。新しく選んだ・手で検索したら空にする
+  let trail = [];
+  // 連想の欄の見出しと、relations.js の読み込み状態（idle → loading → ready / failed）。
+  // render() より前に宣言しておく（let は宣言の行より前で触るとエラーになる）
+  const ASSOC_KINDS = ['大きなくくり', '具体的に', '部分', '〜の一部'];
+  let relationsState = window.KOTOBA_RELATIONS ? 'ready' : 'idle';
 
   let isComposing = false;
   let detectTimer = null;
@@ -934,6 +941,7 @@
 
   // 選択（or 自動検出）で語が見つかった：置換対象と「元の語」を記録してパネルを更新
   function startTarget(hit) {
+    trail = [];
     target = { ...hit, word: hit.key };
     origin = { key: hit.key, text: hit.text };
     setQuery(hit.key);
@@ -958,6 +966,7 @@
       if (hit.notFound) {
         target = null;
         origin = null;
+        trail = [];
         setQuery(hit.key);
       } else {
         startTarget(hit);
@@ -1042,6 +1051,24 @@
       results.appendChild(row);
     }
 
+    // 連想の語をたどってきたとき：戻るボタンと、今見ている語そのもの（押すと本文に入る）
+    if (trail.length) {
+      const row = document.createElement('div');
+      row.className = 'group trail-row';
+      const back = trail[trail.length - 1];
+      row.appendChild(makeCandidate(`‹ ${back}`, () => { trail.pop(); setQuery(back); }, {
+        className: 'trail-back', title: `「${back}」に戻る`,
+      }));
+      const surface = surfaceFor(q, live);
+      if (surface !== null) {
+        row.appendChild(makeCandidate(q, () => applyCandidate(q), {
+          className: 'trail-word' + (live && live.word === q ? ' current' : ''),
+          title: live ? `本文の「${live.text}」をこの語にする` : 'カーソルの位置に入れる',
+        }));
+      }
+      results.appendChild(row);
+    }
+
     // 「拒否感」が辞書になく「拒否」で探したとき。候補を選ぶと「拒否」の部分だけ入れ替わる（拒絶 → 拒絶感）
     if (live && live.partial && origin && origin.key === q) {
       const note = document.createElement('p');
@@ -1078,6 +1105,82 @@
       p.textContent = groups ? 'この形に活用できる候補がありません' : '見つかりませんでした';
       results.appendChild(p);
     }
+
+    renderAssoc(q, new Set([q, ...(groups || []).flat()]));
+  }
+
+  // ===============================================================
+  // 連想（大きなくくり・具体的な言い方・部分・全体）
+  // ===============================================================
+  // 類語は「置き換える語」、連想は「たどる語」。押すと本文は変えずに、その語で引き直す（雨 → 夕立 → …）。
+  // データ（relations.js、4MB 台）は、連想の欄を初めて開いたときに読み込む。起動を重くしないため
+
+  function loadRelations() {
+    if (relationsState !== 'idle') return;
+    relationsState = 'loading';
+    const el = document.createElement('script');
+    el.src = 'relations.js'; // fetch ではなく script なのは、file:// で開いても読めるようにするため（辞書と同じ）
+    el.onload = () => { relationsState = window.KOTOBA_RELATIONS ? 'ready' : 'failed'; render(); };
+    el.onerror = () => { relationsState = 'failed'; render(); };
+    document.head.appendChild(el);
+  }
+
+  function relationsOf(word) {
+    const R = window.KOTOBA_RELATIONS;
+    const cols = R && Object.prototype.hasOwnProperty.call(R.rel, word) ? R.rel[word] : null;
+    return cols ? cols.map((ids) => ids.map((i) => R.words[i])) : null;
+  }
+
+  function drill(word) {
+    trail.push(query.trim());
+    setQuery(word);
+    results.scrollTop = 0;
+  }
+
+  function renderAssoc(q, shownWords) {
+    const open = store.settings.assoc;
+    const box = document.createElement('section');
+    box.className = 'assoc';
+
+    const head = document.createElement('button');
+    head.type = 'button';
+    head.className = 'assoc-toggle';
+    head.textContent = `${open ? '▾' : '▸'} 連想`;
+    head.title = open ? '連想を閉じる' : '大きなくくり・具体的な言い方・部分などを出す';
+    head.setAttribute('aria-expanded', String(open));
+    head.addEventListener('pointerdown', (ev) => {
+      ev.preventDefault(); // 本文の選択を外さない
+      store.settings.assoc = !store.settings.assoc;
+      scheduleSave();
+      render();
+    });
+    box.appendChild(head);
+
+    if (open) {
+      if (relationsState === 'idle') loadRelations();
+      if (relationsState === 'loading') {
+        box.appendChild(Object.assign(document.createElement('p'), { className: 'assoc-note', textContent: '読み込み中…' }));
+      } else if (relationsState === 'failed') {
+        box.appendChild(Object.assign(document.createElement('p'), { className: 'assoc-note', textContent: '連想のデータを読み込めませんでした' }));
+      } else {
+        const cols = relationsOf(q);
+        let rows = 0;
+        (cols || []).forEach((words, k) => {
+          const list = words.filter((w) => !shownWords.has(w));
+          if (!list.length) return;
+          const row = document.createElement('div');
+          row.className = 'assoc-row';
+          row.appendChild(Object.assign(document.createElement('span'), { className: 'assoc-label', textContent: ASSOC_KINDS[k] }));
+          for (const w of list) {
+            row.appendChild(makeCandidate(w, () => drill(w), { className: 'assoc-word', title: `「${w}」で引き直す` }));
+          }
+          box.appendChild(row);
+          rows++;
+        });
+        if (!rows) box.appendChild(Object.assign(document.createElement('p'), { className: 'assoc-note', textContent: 'この語の連想はありません' }));
+      }
+    }
+    results.appendChild(box);
   }
 
   // ===============================================================
@@ -1273,6 +1376,7 @@
     if (search.isComposing) return;
     target = null; // 手動検索に切り替えたら選択由来の置換対象は破棄
     origin = null;
+    trail = [];
     query = search.value;
     render();
   });

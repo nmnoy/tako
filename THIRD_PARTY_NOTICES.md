@@ -72,6 +72,24 @@ This project includes UniDic and a part of NEologd.
 
 ---
 
+## Open English WordNet
+
+- 配布元: https://github.com/globalwordnet/english-wordnet
+- 用途: 連想の欄（大きなくくり・具体的な言い方・部分・全体）の、意味どうしの関係。英語の語は使わず、日本語WordNet の語どうしを結ぶためだけに使用
+- ライセンス: Creative Commons Attribution 4.0（CC BY 4.0）と WordNet License（Princeton WordNet をもとにしているため）
+- 全文: `licenses/Open-English-WordNet.txt`
+
+```
+Open English Wordnet, Copyright by the Open English Wordnet team. Licensed under CC BY 4.0.
+https://creativecommons.org/licenses/by/4.0/
+This work is based on or incorporates elements of the Princeton University WordNet database.
+WordNet 3.1 Copyright 2011 by Princeton University. All rights reserved.
+```
+
+> 注: 関係のデータは relations.js に加工して入っている（日本語の語に置き換えた形）。CC BY 4.0 は表示だけで継承義務はない
+
+---
+
 ## wordfreq
 
 - 配布元: https://github.com/rspeer/wordfreq
