@@ -11,7 +11,7 @@
 //   VERSION を変え忘れると、style.css や app.js を直しても、利用者の手元では古いキャッシュが出続ける。
 //   これが PWA で一番よくある事故。
 
-const VERSION = '88aaae6a48fa';
+const VERSION = 'ceac51b23647';
 const CACHE = `kotoba-${VERSION}`;
 
 // キャッシュに入れるファイル。ファイルを増やしたらここにも足す（stamp_sw.py が足し忘れを警告する）

@@ -93,18 +93,37 @@
   const toast = document.getElementById('toast');
   const toastText = toast.querySelector('.toast-text');
   const toastAction = toast.querySelector('.toast-action');
+  const toastClose = toast.querySelector('.toast-close');
+  // ボタン付きのお知らせ（「元に戻す」など）が出ている時間。押す暇は要るが、出しっぱなしだと邪魔になる
+  const ACTION_TOAST_MS = 8000;
+  let toastSticky = false;
   let toastTimer = 0;
   let toastRun = null;
+  // action … { label, run, sticky }。sticky は自分で閉じるまで出しておく（新しいバージョンのお知らせ）。
+  // 以前はボタン付きなら全部出しっぱなしで、「画像を削除しました」が消せなくなっていた（10/27）
   function showToast(message, action) {
     toastText.textContent = message;
     toastRun = action ? action.run : null;
+    toastSticky = !!(action && action.sticky);
     toastAction.hidden = !action;
     toastAction.textContent = action ? action.label : '';
+    toastClose.hidden = !action; // ボタン付きのときは × でも閉じられる
     toast.classList.toggle('has-action', !!action);
     toast.classList.add('show');
     clearTimeout(toastTimer);
-    if (!action) toastTimer = setTimeout(() => toast.classList.remove('show'), 2400);
+    if (!toastSticky) toastTimer = setTimeout(hideToast, action ? ACTION_TOAST_MS : 2400);
   }
+  function hideToast() {
+    clearTimeout(toastTimer);
+    toastRun = null;
+    toast.classList.remove('show');
+  }
+  toastClose.addEventListener('click', hideToast);
+  // マウスを乗せている間は消さない（「元に戻す」を押そうとした瞬間に消えると腹が立つ）
+  toast.addEventListener('pointerenter', () => { if (toastRun) clearTimeout(toastTimer); });
+  toast.addEventListener('pointerleave', () => {
+    if (toastRun && !toastSticky && toast.classList.contains('show')) toastTimer = setTimeout(hideToast, 3000);
+  });
   toastAction.addEventListener('click', () => {
     const run = toastRun;
     toastRun = null;
@@ -1704,7 +1723,7 @@
   window.KotobaPWA.create({
     installButton: document.getElementById('installBtn'),
     // 新しい版が届いた。勝手に読み直すと書いている最中の人が困るので、押してもらう
-    onUpdateReady: (apply) => showToast('タコエディタの新しいバージョンがあります（更新しても原稿は消えません）', { label: '更新', run: apply }),
+    onUpdateReady: (apply) => showToast('タコエディタの新しいバージョンがあります（更新しても原稿は消えません）', { label: '更新', run: apply, sticky: true }),
     beforeReload: saveNow,
   });
   applySettings();
