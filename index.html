@@ -253,6 +253,15 @@
   <script src="platform.js"></script>
   <script src="storage.js"></script>
   <script src="dictionary.js"></script>
+  <!-- 個人用：分類語彙表入りの辞書（dictionary.local.js）があれば、上の辞書と差し替える。
+       手元（file:// か localhost）で開いたときだけ探す。公開サイトでは探しに行かない（無駄な通信と 404 を出さない）。
+       ファイルは配布しない（分類語彙表は非営利ライセンス。tools/build_dictionary.py の説明を参照）。
+       document.write なのは、次の verb.js や app.js より先に、確実に読み終えておくため -->
+  <script>
+    if (location.protocol === 'file:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+      document.write('<script src="dictionary.local.js"><\/script>');
+    }
+  </script>
   <script src="verb.js"></script>
   <script src="caret.js"></script>
   <script src="find.js"></script>

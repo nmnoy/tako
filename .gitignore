@@ -3,3 +3,5 @@ __pycache__/
 .DS_Store
 dist/
 .wrangler/
+# 個人用の分類語彙表入り辞書。非営利ライセンスなので、リポジトリにも公開サイトにも上げない
+dictionary.local.js

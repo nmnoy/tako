@@ -116,9 +116,19 @@
         }
         list.append(d);
       }
+      // 個人用の分類語彙表入り辞書を読んでいるときだけ、その出典を足す（国語研に指定された書き方）
+      const wlsp = root.KOTOBA_DICTIONARY && root.KOTOBA_DICTIONARY.wlsp
+        ? el('div', { class: 'about-license' },
+          el('p', { text: '国立国語研究所（2004）『分類語彙表増補改訂版データベース』（ver.1.0.1）' }),
+          el('p', { text: 'ライセンス：CC BY-NC-SA 3.0' }),
+          el('p', {}, link('https://creativecommons.org/licenses/by-nc-sa/3.0/deed.ja', 'https://creativecommons.org/licenses/by-nc-sa/3.0/deed.ja')),
+          el('p', {}, link('https://clrd.ninjal.ac.jp/goihyo.html', 'https://clrd.ninjal.ac.jp/goihyo.html')),
+          el('p', { class: 'about-muted', text: '（この辞書は個人用の版です。配布しません）' }))
+        : null;
       body.append(section('類語辞書について',
         el('p', { text: '類語のデータは、次の辞書データをもとに作っています。' }),
         list,
+        wlsp,
       ));
       built = true;
     }

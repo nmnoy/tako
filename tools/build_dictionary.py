@@ -11,6 +11,15 @@
   python3 tools/build_dictionary.py            # ../dictionary.js を上書き
   python3 tools/build_dictionary.py --no-sudachi
 
+  # 個人用：分類語彙表（国立国語研究所）も混ぜた版を dictionary.local.js に作る（公開しない。下を参照）
+  python3 tools/build_dictionary.py --wlsp ~/WLSP/bunruidb.txt --out dictionary.local.js
+
+分類語彙表について:
+  CC BY-NC-SA 3.0（非営利のみ）。タコエディタは投げ銭を受け付けるので、配布する版には入れられない
+  （国語研に確認済み。投げ銭がある場合は商業利用＝有償契約で、しかも契約でも語の一覧の配布は禁止）。
+  なので自分のパソコンだけで使う。dictionary.local.js は .gitignore 済み、sw.js の ASSETS にも入れない
+  （＝ build_site.py が dist/ にコピーしないので、Cloudflare には上がらない）。
+
 出力の形:
   window.KOTOBA_DICTIONARY = {
     groups: [["本日","きょう"], ...],   // 意味グループ。語はよく使う順
@@ -136,6 +145,36 @@ def load_wordnet() -> tuple[list[list[str]], set[str], set[str]]:
     return list(synsets.values()), adjectives, verbs
 
 
+def load_wlsp(path: Path, adjectives: set[str], verbs: set[str], rank: dict[str, int]) -> list[list[str]]:
+    """分類語彙表（bunruidb.txt, Shift_JIS の CSV）を、段落ごとのグループにする。
+
+    列: 0 レコード番号, 3 類（体・用・相・他）, 7 分類番号（1.3020 など）, 8 段落番号, 9 小段落番号, 12 本体（見出しの語）
+    分類番号の下の「段落」が、意味の近い語のまとまり（中央値8語）。小段落は細かすぎる（中央値3語）。
+    分類番号の頭の数字が類（1 体・2 用・3 相・4 他）なので、名詞と動詞が同じグループに混ざることはない。
+    """
+    groups: dict[tuple[str, str], list[str]] = defaultdict(list)
+    with open(path, encoding='cp932', errors='replace', newline='') as f:
+        for row in csv.reader(f):
+            if len(row) < 13:
+                continue
+            kind, code, para, body = row[3], row[7], row[8], row[12]
+            # 「－こ［椀～］」のような接辞・用例つきの見出しは言い換え候補にならない
+            if any(c in body for c in '－［］～〜…'):
+                continue
+            # 「憂い・憂え」のような表記の併記は分ける（カタカナ語の中黒は語の一部なので分けない）
+            parts = body.split('・') if re.search(r'[\u3040-\u309f\u4e00-\u9fff]', body) else [body]
+            for part in parts:
+                w = normalize(part)
+                if not w:
+                    continue
+                groups[(code, para)].append(w)
+                if kind == '相' and w.endswith('い') and len(w) >= 2 and w in rank:
+                    adjectives.add(w)
+                if kind == '用' and w[-1] in VERB_ENDINGS:
+                    verbs.add(w)
+    return list(groups.values())
+
+
 def load_sudachi(verbs: set[str]) -> list[list[str]]:
     groups: dict[str, list[str]] = defaultdict(list)
     with open(SUDACHI_TXT, encoding='utf-8') as f:
@@ -182,7 +221,7 @@ def dedupe(words: list[str]) -> list[str]:
     return [w for w in words if w + 'する' not in seen]
 
 
-def build(use_sudachi: bool) -> dict:
+def build(use_sudachi: bool, wlsp: Path | None = None) -> dict:
     rank = load_rank()
     print(f'  wordfreq: {len(rank):,} 語', file=sys.stderr)
 
@@ -202,6 +241,11 @@ def build(use_sudachi: bool) -> dict:
         su = load_sudachi(verbs)
         raw += [(g, False) for g in su]
         print(f'  Sudachi:  {len(su):,} グループ', file=sys.stderr)
+
+    if wlsp:
+        wl = load_wlsp(wlsp, adjectives, verbs, rank)
+        raw += [(g, False) for g in wl]
+        print(f'  分類語彙表: {len(wl):,} グループ（個人用）', file=sys.stderr)
 
     # 手書きグループの「〜い」で終わる見出し語も形容詞として扱う（暑い、寒い…）
     for g in extra:
@@ -286,18 +330,28 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--no-sudachi', action='store_true', help='Sudachi 同義語辞書を使わない')
     ap.add_argument('--out', type=Path, default=OUT)
+    ap.add_argument('--wlsp', type=Path, help='分類語彙表の bunruidb.txt。個人用の版を作るときだけ（--out dictionary.local.js と一緒に）')
     args = ap.parse_args()
 
     if not WNJA_XML.exists():
         sys.exit(f'{WNJA_XML} がない。先に tools/fetch_sources.sh を実行して')
 
     print('辞書を生成中…', file=sys.stderr)
-    data = build(use_sudachi=not args.no_sudachi)
+    if args.wlsp:
+        if not args.wlsp.exists():
+            sys.exit(f'{args.wlsp} がない')
+        # うっかり配布用の dictionary.js を上書きしないように
+        if args.out.resolve() == OUT.resolve():
+            sys.exit('分類語彙表入りは配布できないので、--out dictionary.local.js を指定して')
+    data = build(use_sudachi=not args.no_sudachi, wlsp=args.wlsp)
+    if args.wlsp:
+        data['wlsp'] = True   # アプリ側で出典を表示するための印
 
     body = json.dumps(data, ensure_ascii=False, separators=(',', ':'))
     header = (
         '// 自動生成ファイル。直接編集しない（tools/build_dictionary.py で再生成する）。\n'
-        '// 元データ: 日本語WordNet / Sudachi 同義語辞書 / tools/extra.txt\n'
+        '// 元データ: 日本語WordNet / Sudachi 同義語辞書 / tools/extra.txt'
+        + (' / 分類語彙表（国立国語研究所、CC BY-NC-SA 3.0。個人用・配布しない）' if args.wlsp else '') + '\n'
         '// ライセンスは THIRD_PARTY_NOTICES.md を参照。\n'
     )
     args.out.write_text(header + 'window.KOTOBA_DICTIONARY = ' + body + ';\n', encoding='utf-8')
