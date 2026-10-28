@@ -54,6 +54,7 @@
     // 完成にする前に確かめる（一覧の ✓ はマウスを乗せると出るので、うっかり押しやすい）
     function ask(memo) {
       const chars = countChars(memo.body);
+      setCelebrate(false);
       body.textContent = '';
       body.append(
         el('h2', { class: 'done-title small', text: `『${label(memo)}』を脱稿しますか？` }),
@@ -86,12 +87,25 @@
       celebrate(memo);
     }
 
+    // お祝いのタコのアニメ（tools/build_anim.py で作る。ループ再生）。「脱稿！」の画面は常に白い紙なので、紺1色の1種類だけ。
+    // 動きを減らす設定の人には、最後のコマの静止画を出す。
+    // ?play=… … 開くたびに最初のコマから始めるため。Service Worker は ? 以降を無視してキャッシュから返すので、オフラインでも出る
+    function tako() {
+      return el('picture', { class: 'done-tako' },
+        el('source', { srcset: 'icons/done-still.png', media: '(prefers-reduced-motion: reduce)' }),
+        el('img', { src: `icons/done.png?play=${Date.now()}`, alt: '', width: '64', height: '64' }));
+    }
+
+    // 「脱稿！」の画面だけ白い紙にする（CSS の .is-celebrate）。確認や管理の画面ではいつもの配色に戻す
+    function setCelebrate(on) { dialog.classList.toggle('is-celebrate', on); }
+
     function celebrate(memo) {
       const c = memo.completed;
       const days = memo.createdAt ? Math.max(1, Math.ceil((c.at - memo.createdAt) / DAY)) : 0;
+      setCelebrate(true);
       body.textContent = '';
       body.append(
-        el('img', { class: 'done-tako', src: 'icons/icon.svg', alt: '', width: '64', height: '64' }),
+        tako(),
         el('h2', { class: 'done-title', text: '脱稿！' }),
         el('p', { class: 'done-work', text: `『${label(memo)}』` }),
         el('p', { class: 'done-stats', text: `${c.chars.toLocaleString()}字${days ? `（書き始めてから${days}日）` : ''}` }),
@@ -128,6 +142,7 @@
       const c = memo.completed;
       const s = c.snapshot || { title: memo.title, body: memo.body };
       const changed = s.title !== memo.title || s.body !== memo.body;
+      setCelebrate(false);
       body.textContent = '';
       body.append(
         el('h2', { class: 'done-title small', text: `『${label(memo)}』` }),

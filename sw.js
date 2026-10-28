@@ -11,7 +11,7 @@
 //   VERSION を変え忘れると、style.css や app.js を直しても、利用者の手元では古いキャッシュが出続ける。
 //   これが PWA で一番よくある事故。
 
-const VERSION = 'ceac51b23647';
+const VERSION = 'bf4510127d07';
 const CACHE = `kotoba-${VERSION}`;
 
 // キャッシュに入れるファイル。ファイルを増やしたらここにも足す（stamp_sw.py が足し忘れを警告する）
@@ -36,12 +36,13 @@ const ASSETS = [
   'pwa.js',
   'app.js',
   'manifest.webmanifest',
-  'icons/icon.svg',
   'icons/icon-192.png',
   'icons/icon-512.png',
   'icons/icon-maskable-512.png',
   'icons/apple-touch-icon.png',
   'icons/favicon-32.png',
+  'icons/done.png',
+  'icons/done-still.png',
   'THIRD_PARTY_NOTICES.md',
   'licenses/Apache-2.0.txt',
   'licenses/Japanese-WordNet.txt',

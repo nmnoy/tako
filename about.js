@@ -52,7 +52,7 @@
       body.textContent = '';
 
       body.append(el('div', { class: 'about-head' },
-        el('img', { class: 'about-icon', src: 'icons/icon.svg', alt: '', width: '48', height: '48' }),
+        el('img', { class: 'about-icon', src: 'icons/icon-192.png', alt: '', width: '48', height: '48' }),
         el('div', {},
           el('div', { class: 'about-name', text: APP_NAME }),
           el('div', { class: 'about-version', text: `バージョン ${APP_VERSION}` })),
