@@ -88,12 +88,10 @@
     }
 
     // お祝いのタコのアニメ（tools/build_anim.py で作る。ループ再生）。「脱稿！」の画面は常に白い紙なので、紺1色の1種類だけ。
-    // 動きを減らす設定の人には、最後のコマの静止画を出す。
+    // OS の「視差効果を減らす」（prefers-reduced-motion）でも止めない（作者の判断、10/28。小さくゆっくりな動きなので）。
     // ?play=… … 開くたびに最初のコマから始めるため。Service Worker は ? 以降を無視してキャッシュから返すので、オフラインでも出る
     function tako() {
-      return el('picture', { class: 'done-tako' },
-        el('source', { srcset: 'icons/done-still.png', media: '(prefers-reduced-motion: reduce)' }),
-        el('img', { src: `icons/done.png?play=${Date.now()}`, alt: '', width: '64', height: '64' }));
+      return el('img', { class: 'done-tako', src: `icons/done.png?play=${Date.now()}`, alt: '', width: '64', height: '64' });
     }
 
     // 「脱稿！」の画面だけ白い紙にする（CSS の .is-celebrate）。確認や管理の画面ではいつもの配色に戻す

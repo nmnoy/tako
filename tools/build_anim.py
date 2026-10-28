@@ -6,7 +6,6 @@
 
 出力（icons/）:
     done.png        … アニメ（紺。「脱稿！」の画面はダークモードでも白い紙なので1色でいい）
-    done-still.png  … 動きを減らす設定の人向けの静止画（最後のコマ）
 
 コマについて:
     - 白い背景に紺1色で描いたもの（クリスタの連番書き出しは BMP で透明を持てない）。
@@ -58,9 +57,8 @@ def main() -> None:
     frames = [colorize(a, INK) for a, _ in merged]
     frames[0].save(OUT / 'done.png', save_all=True, append_images=frames[1:],
                    duration=[n * ms for _, n in merged], loop=PLAYS, disposal=1, blend=0, optimize=True)
-    frames[-1].save(OUT / 'done-still.png', optimize=True)
     total = sum(n for _, n in merged) * ms
-    print(f'{len(alphas)} コマ（まとめて {len(merged)} 枚）/ {total / 1000:.1f} 秒でループ → icons/done.png, done-still.png')
+    print(f'{len(alphas)} コマ（まとめて {len(merged)} 枚）/ {total / 1000:.1f} 秒でループ → icons/done.png')
 
 
 if __name__ == '__main__':
