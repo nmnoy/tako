@@ -18,7 +18,7 @@
   const APP_NAME = 'タコエディタ';
   const APP_VERSION = '0.9.0';
   // 投げ銭の受け取り先（BOOTH のブースト付き0円商品など）。決まったらここに URL を入れる
-  const SUPPORT_URL = '';
+  const SUPPORT_URL = 'https://1bansha.booth.pm/items/9038997';
 
   function el(tag, attrs = {}, ...children) {
     const e = document.createElement(tag);
