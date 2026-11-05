@@ -58,7 +58,7 @@ SUDACHI_SKIP_FIELDS = {
 }
 
 MAX_GROUPS_PER_WORD = 8     # 1語に出す意味グループの上限（多すぎるとパネルが埋まる）
-MAX_WORDS_PER_GROUP = 24    # 1グループの語数の上限（よく使う順に切る）
+MAX_WORDS_PER_GROUP = 24    # 1グループの語数の上限（よく使う順に切る）。extra.txt の手書きの行には効かない
 MAX_WORD_LENGTH = 12        # これより長い「語」はほぼ説明文なので捨てる
 UNKNOWN_RANK = 10_000       # 頻度データにない語の順位（＝一番後ろ）
 
@@ -309,7 +309,9 @@ def build(use_sudachi: bool, wlsp: Path | None = None) -> dict:
     # --- 使われなくなったグループを捨てて番号を詰める ---
     used = sorted({g for gids in index.values() for g in gids})
     renum = {old: new for new, old in enumerate(used)}
-    out_groups = [groups[g][:MAX_WORDS_PER_GROUP] for g in used]
+    # 手書きの行は切らない（人が選んで書いた語なので全部出す。一人称の行は30語以上ある、11/5）。
+    # 上限は、WordNet の何十語もある大きなグループを絞るためのもの
+    out_groups = [groups[g] if is_manual[g] else groups[g][:MAX_WORDS_PER_GROUP] for g in used]
     out_index = {w: [renum[g] for g in gids] for w, gids in index.items()}
     in_groups = {w for g in out_groups for w in g}
 
