@@ -2,15 +2,13 @@
 //
 // 載せるもの:
 //   - 名前・バージョン・ひとこと説明
-//   - 原稿の保存場所（外に送らないこと・バックアップのすすめ）。無料で配るアプリでも、ここが一番気にされる
+//   - 原稿の保存場所（外に送らないこと・バックアップのすすめ）。
 //   - 動作環境（PC の Chrome / Edge 推奨）
 //   - ショートカット
 //   - 応援（投げ銭）のリンク。SUPPORT_URL が空のあいだは「準備中」と出す
 //   - 類語辞書の元データのライセンス表記（notices.js。THIRD_PARTY_NOTICES.md から tools/build_notices.py で生成）
 //     ライセンス表記は「全コピーに含める」ことが条件のものがあるので、アプリの中から必ず見られるようにしておく
 //
-// 入口は右パネルの一番下の小さなリンクだけ。起動時に出したり、応援をお願いするポップアップは出さない
-// （「書いているときに余計なものを見せない」方針。うるさいお願いは、かえって応援を減らす）。
 
 (function (root) {
   'use strict';
@@ -19,6 +17,7 @@
   const APP_VERSION = '0.9.0';
   // 投げ銭の受け取り先（BOOTH のブースト付き0円商品など）。決まったらここに URL を入れる
   const SUPPORT_URL = 'https://1bansha.booth.pm/items/9038997';
+
 
   function el(tag, attrs = {}, ...children) {
     const e = document.createElement(tag);
