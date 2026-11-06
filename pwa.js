@@ -106,14 +106,27 @@
       });
 
       // 原稿エディタは何日も開きっぱなしにされがち。ブラウザは「ページを開いたとき」しか更新を確かめないので、
-      // 画面に戻ってきたとき（最後の確認から1時間以上たっていれば）にも確かめる
+      // 開いている間も自分で確かめる（11/6。以前は「画面に戻ってきて、しかも1時間以上たっていたら」だけで、
+      // 開きっぱなしのタブにはなかなか更新のお知らせが出なかった）。
+      //   - 画面に戻ってきたとき・窓を選んだとき … 前回から10分以上たっていれば
+      //   - 開いて見ている間 …………………………… 30分ごと
+      // 確かめるのは sw.js 1ファイル（数KB）だけなので、通信の負担はほぼない
+      const RECHECK_MIN = 10 * 60 * 1000;
+      const POLL = 30 * 60 * 1000;
       let lastCheck = Date.now();
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState !== 'visible') return;
-        if (Date.now() - lastCheck < 60 * 60 * 1000) return;
+      function check(force) {
+        if (notified) return;                                   // もう知らせてあれば、確かめる必要はない
+        if (!force && Date.now() - lastCheck < RECHECK_MIN) return;
         lastCheck = Date.now();
         reg.update().catch(() => {}); // オフラインなら失敗するが、気にしない
+      }
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') check(false);
       });
+      window.addEventListener('focus', () => check(false));
+      setInterval(() => {
+        if (document.visibilityState === 'visible') check(true);
+      }, POLL);
     }).catch(() => {
       // 登録に失敗してもエディタは普通に使える（オフライン対応がないだけ）
     });

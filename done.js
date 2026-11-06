@@ -119,7 +119,7 @@
         memo.cheered = true;
         commit();
         const line = el('p', { class: 'done-cheer' },
-          'タコエディタが役に立ったら、応援してもらえるとうれしいです。',
+          'タコエディタが役に立って、気が向いたら応援してもらえるとうれしいです。',
           el('a', {
             href: url, text: '応援する', rel: 'noopener noreferrer', target: '_blank',
             onclick: (e) => { e.preventDefault(); root.KotobaPlatform.openExternal(url); },
